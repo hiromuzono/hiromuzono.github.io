@@ -61,3 +61,20 @@ export async function PUT(
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);
 }
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const { id } = params;
+
+  const { data: req } = await supabase.from("requests").select("status").eq("id", id).single();
+  if (!req) return NextResponse.json({ error: "リクエストが見つかりません" }, { status: 404 });
+  if (!["approved", "declined", "withdrawn"].includes(req.status)) {
+    return NextResponse.json({ error: "申請中・交渉中のリクエストは削除できません" }, { status: 400 });
+  }
+
+  const { error } = await supabase.from("requests").delete().eq("id", id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ success: true });
+}
