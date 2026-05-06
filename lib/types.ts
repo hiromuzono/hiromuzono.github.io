@@ -5,5 +5,5 @@ export interface TicketRequest {
   parent_name: string | null;
   status: RequestStatus; created_at: string; updated_at: string;
 }
-export interface TicketSettings { id: number; total_limit: number; }
-export interface TicketStats { total_limit: number; used: number; pending: number; remaining: number; }
+export interface TicketSettings { id: number; total_limit: number; parent_name?: string | null; }
+export interface TicketStats { parent_name?: string; total_limit: number; used: number; pending: number; remaining: number; }
