@@ -12,7 +12,7 @@ export default function Home() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const selectParent = (name: "お父さん" | "お母さん") => {
+  const selectParent = (name: "中薗孝幸" | "中薗明子") => {
     sessionStorage.setItem("role", "parent");
     sessionStorage.setItem("parent_name", name);
     router.push("/parent");
