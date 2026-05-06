@@ -26,6 +26,7 @@ export default function ChildPage() {
   const [newLimit, setNewLimit] = useState("");
   const [limitLoading, setLimitLoading] = useState(false);
   const [limitMsg, setLimitMsg] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   useEffect(() => {
     if (sessionStorage.getItem("role") !== "child") { router.push("/"); return; }
@@ -50,6 +51,13 @@ export default function ChildPage() {
       const res = await fetch("/api/requests/" + actionState.id, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       if (res.ok) { setActionState(null); await fetchData(); }
     } finally { setActionLoading(null); }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await fetch("/api/requests/" + id, { method: "DELETE" });
+      if (res.ok) { setRequests(prev => prev.filter(r => r.id !== id)); setDeleteConfirm(null); }
+    } catch { /* ignore */ }
   };
 
   const handleLimit = async () => {
@@ -85,14 +93,14 @@ export default function ChildPage() {
           <div className="bg-white border border-gray-200 p-4">
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">チケット残数</p>
-              <svg width="16" height="16" viewBox="0 0 18 18" fill="none" className="text-[#c9a84c]"><rect x="1" y="4" width="16" height="10" rx="1" stroke="currentColor" strokeWidth="1.4"/><line x1="1" y1="8" x2="17" y2="8" stroke="currentColor" strokeWidth="1" strokeDasharray="2 1.5"/><line x1="1" y1="12" x2="17" y2="12" stroke="currentColor" strokeWidth="1" strokeDasharray="2 1.5"/><circle cx="4.5" cy="4" r="1.5" fill="#f8f7f4" stroke="currentColor" strokeWidth="1"/><circle cx="13.5" cy="4" r="1.5" fill="#f8f7f4" stroke="currentColor" strokeWidth="1"/></svg>
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className="text-[#c9a84c]"><rect x="1" y="4" width="16" height="10" rx="1" stroke="currentColor" strokeWidth="1.4"/><line x1="1" y1="8" x2="17" y2="8" stroke="currentColor" strokeWidth="1" strokeDasharray="2 1.5"/><line x1="1" y1="12" x2="17" y2="12" stroke="currentColor" strokeWidth="1" strokeDasharray="2 1.5"/><circle cx="4.5" cy="4" r="1.5" fill="#f8f7f4" stroke="currentColor" strokeWidth="1"/><circle cx="13.5" cy="4" r="1.5" fill="#f8f7f4" stroke="currentColor" strokeWidth="1"/></svg>
             </div>
             <div className="flex items-baseline gap-2 mb-3">
               <span className="text-4xl font-bold text-[#1a1f3a]">{stats.remaining}</span>
               <span className="text-sm text-gray-400">/ {stats.total_limit}枚</span>
             </div>
             <div className="w-full bg-gray-100 h-1.5 mb-3">
-              <div className="bg-[#c9a84c] h-1.5 transition-all" style={{width:`${Math.min(100,((stats.total_limit-stats.remaining)/stats.total_limit)*100)}%`}} />
+              <div className="bg-[#c9a84c] h-1.5 transition-all" style={{width: Math.min(100,((stats.total_limit-stats.remaining)/stats.total_limit)*100) + "%"}} />
             </div>
             <div className="flex text-xs text-gray-400 gap-5"><span>使用済み {stats.used}枚</span><span>申請中 {stats.pending}枚</span></div>
           </div>
@@ -102,7 +110,7 @@ export default function ChildPage() {
       <div className="px-5 pt-4">
         <div className="flex gap-0 mb-5 border border-gray-200 overflow-hidden">
           {(["requests", "history", "settings"] as const).map((t, i) => (
-            <button key={t} onClick={() => setTab(t)} className={`flex-1 py-3 font-semibold text-xs transition-colors ${i > 0 ? "border-l border-gray-200" : ""} ${tab === t ? "bg-[#1a1f3a] text-white" : "bg-white text-gray-500 hover:bg-gray-50"}`}>
+            <button key={t} onClick={() => setTab(t)} className={"flex-1 py-3 font-semibold text-xs transition-colors " + (i > 0 ? "border-l border-gray-200 " : "") + (tab === t ? "bg-[#1a1f3a] text-white" : "bg-white text-gray-500 hover:bg-gray-50")}>
               {t === "requests" ? "新着" : t === "history" ? "履歴" : "設定"}
             </button>
           ))}
@@ -174,14 +182,26 @@ export default function ChildPage() {
                         {req.parent_name && <p className="text-xs text-[#c9a84c] font-semibold mb-0.5">{req.parent_name}</p>}
                         <p className="font-semibold text-[#1a1f3a]">{req.title}</p>
                       </div>
-                      <span className={`text-xs px-2 py-1 font-semibold whitespace-nowrap shrink-0 ${s.cls}`}>{s.label}</span>
+                      <span className={"text-xs px-2 py-1 font-semibold whitespace-nowrap shrink-0 " + s.cls}>{s.label}</span>
                     </div>
                     <div className="flex gap-4 text-sm mb-2 flex-wrap">
-                      <span className="text-[#c9a84c]">{req.tickets_requested}枚{req.tickets_negotiated&&req.tickets_negotiated!==req.tickets_requested&&<span className="text-blue-600"> → {req.tickets_negotiated}枚</span>}</span>
+                      <span className="text-[#c9a84c]">{req.tickets_requested}枚{req.tickets_negotiated && req.tickets_negotiated !== req.tickets_requested && <span className="text-blue-600"> → {req.tickets_negotiated}枚</span>}</span>
                     </div>
                     {req.parent_comment && <p className="text-sm text-gray-600 bg-[#f8f7f4] border-l-2 border-[#c9a84c] px-3 py-2 mb-2">{req.parent_comment}</p>}
                     {req.child_comment && <p className="text-sm text-gray-600 bg-blue-50 border-l-2 border-blue-300 px-3 py-2 mb-2">{req.child_comment}</p>}
-                    <p className="text-xs text-gray-400 mt-1">{fmt(req.created_at)}</p>
+                    <div className="flex items-center justify-between mt-1">
+                      <p className="text-xs text-gray-400">{fmt(req.created_at)}</p>
+                      {deleteConfirm === req.id ? (
+                        <div className="flex gap-2">
+                          <button onClick={() => setDeleteConfirm(null)} className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 border border-gray-200">キャンセル</button>
+                          <button onClick={() => handleDelete(req.id)} className="text-xs text-white bg-red-500 hover:bg-red-600 px-2 py-1">削除する</button>
+                        </div>
+                      ) : (
+                        <button onClick={() => setDeleteConfirm(req.id)} className="text-xs text-gray-300 hover:text-red-400 transition-colors flex items-center gap-1">
+                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 3h8M5 3V2h2v1M4 3v7h4V3H4z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>削除
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })
@@ -193,7 +213,7 @@ export default function ChildPage() {
           <div className="bg-white border border-gray-200 p-5">
             <h2 className="text-base font-bold text-[#1a1f3a] mb-5">チケット上限の設定</h2>
             <div className="mb-5">
-              <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">現在の上限</p>
+              <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">現在の上限（一人あたり）</p>
               <p className="text-4xl font-bold text-[#1a1f3a]">{stats?.total_limit ?? "—"} <span className="text-base font-normal text-gray-400">枚</span></p>
             </div>
             <div>
@@ -208,6 +228,7 @@ export default function ChildPage() {
               <p className="font-semibold text-gray-600 mb-1.5">チケットの計算方法</p>
               <p>残り枚数 = 上限 − 使用済み − 申請中</p>
               <p className="mt-1.5 text-xs text-gray-400">交渉中のリクエストは交渉枚数を申請中として計上します</p>
+              <p className="mt-1.5 text-xs text-[#c9a84c] font-medium">この上限は一人あたりの枚数です（中薗孝幸・中薗明子それぞれに適用されます）</p>
             </div>
           </div>
         )}
@@ -217,9 +238,7 @@ export default function ChildPage() {
       {actionState && activeReq && (
         <div className="fixed inset-0 bg-black/60 flex items-end justify-center p-4 z-50">
           <div className="bg-white shadow-2xl p-5 w-full max-w-md">
-            <h3 className="text-base font-bold text-[#1a1f3a] mb-1">
-              {actionState.type === "approve" && "承認する"}{actionState.type === "decline" && "辞退する"}{actionState.type === "negotiate" && "交渉する"}
-            </h3>
+            <h3 className="text-base font-bold text-[#1a1f3a] mb-1">{actionState.type === "approve" && "承認する"}{actionState.type === "decline" && "辞退する"}{actionState.type === "negotiate" && "交渉する"}</h3>
             <p className="text-sm text-gray-500 mb-4">{activeReq.title}</p>
             {actionState.type === "negotiate" && (
               <div className="mb-4">
@@ -234,7 +253,7 @@ export default function ChildPage() {
             </div>
             <div className="flex gap-3">
               <button onClick={() => setActionState(null)} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-600 font-semibold py-3 text-sm transition-colors">キャンセル</button>
-              <button onClick={handleAction} disabled={actionLoading === actionState.id || (actionState.type === "negotiate" && !actionState.ticketsNegotiated)} className={`flex-1 text-white font-semibold py-3 text-sm disabled:opacity-40 transition-colors ${actionState.type === "approve" ? "bg-[#1a1f3a] hover:bg-[#252b4a]" : actionState.type === "decline" ? "bg-[#c0714f] hover:bg-[#a85e3e]" : "bg-blue-600 hover:bg-blue-700"}`}>
+              <button onClick={handleAction} disabled={actionLoading === actionState.id || (actionState.type === "negotiate" && !actionState.ticketsNegotiated)} className={"flex-1 text-white font-semibold py-3 text-sm disabled:opacity-40 transition-colors " + (actionState.type === "approve" ? "bg-[#1a1f3a] hover:bg-[#252b4a]" : actionState.type === "decline" ? "bg-[#c0714f] hover:bg-[#a85e3e]" : "bg-blue-600 hover:bg-blue-700")}>
                 {actionLoading === actionState.id ? "送信中..." : actionState.type === "approve" ? "承認する" : actionState.type === "decline" ? "辞退する" : "提案を送る"}
               </button>
             </div>
