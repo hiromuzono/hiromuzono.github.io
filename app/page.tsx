@@ -105,8 +105,8 @@ export default function Home() {
               <p className="text-sm text-gray-500">申請者のお名前を選んでください</p>
             </div>
             <div className="space-y-3">
-              <button onClick={() => selectParent("お父さん")} className="w-full bg-[#1a1f3a] hover:bg-[#252b4a] text-white font-semibold py-5 px-6 text-lg transition-colors">お父さん</button>
-              <button onClick={() => selectParent("お母さん")} className="w-full bg-[#1a1f3a] hover:bg-[#252b4a] text-white font-semibold py-5 px-6 text-lg transition-colors">お母さん</button>
+              <button onClick={() => selectParent("中薗孝幸")} className="w-full bg-[#1a1f3a] hover:bg-[#252b4a] text-white font-semibold py-5 px-6 text-lg transition-colors">お父さん</button>
+              <button onClick={() => selectParent("中薗明子")} className="w-full bg-[#1a1f3a] hover:bg-[#252b4a] text-white font-semibold py-5 px-6 text-lg transition-colors">お母さん</button>
             </div>
           </>
         )}
