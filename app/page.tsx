@@ -3,36 +3,39 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-type Step = "top" | "select_parent" | "child_auth";
+type Step = "top" | "select_parent" | "parent_auth" | "child_auth";
 
 export default function Home() {
   const router = useRouter();
   const [step, setStep] = useState<Step>("top");
+  const [selectedParent, setSelectedParent] = useState<"中薗孝幸" | "中薗明子" | null>(null);
+  const [parentPassword, setParentPassword] = useState("");
+  const [parentAuthError, setParentAuthError] = useState("");
+  const [parentAuthLoading, setParentAuthLoading] = useState(false);
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const selectParent = (name: "中薗孝幸" | "中薗明子") => {
-    sessionStorage.setItem("role", "parent");
-    sessionStorage.setItem("parent_name", name);
-    router.push("/parent");
+  const handleSelectParent = (name: "中薗孝幸" | "中薗明子") => {
+    setSelectedParent(name); setParentPassword(""); setParentAuthError(""); setStep("parent_auth");
+  };
+
+  const handleParentAuth = async () => {
+    if (!selectedParent) return;
+    setParentAuthLoading(true); setParentAuthError("");
+    try {
+      const res = await fetch("/api/auth/parent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ parent_name: selectedParent, password: parentPassword }) });
+      if (res.ok) { sessionStorage.setItem("role", "parent"); sessionStorage.setItem("parent_name", selectedParent); router.push("/parent"); }
+      else { const d = await res.json(); setParentAuthError(d.error || "パスワードが違います"); }
+    } catch { setParentAuthError("エラーが発生しました"); } finally { setParentAuthLoading(false); }
   };
 
   const handleChild = async () => {
     setLoading(true); setError("");
     try {
-      const res = await fetch("/api/auth/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
-      });
-      if (res.ok) {
-        sessionStorage.setItem("role", "child");
-        router.push("/child");
-      } else {
-        const d = await res.json();
-        setError(d.error || "パスワードが違います");
-      }
+      const res = await fetch("/api/auth/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password }) });
+      if (res.ok) { sessionStorage.setItem("role", "child"); router.push("/child"); }
+      else { const d = await res.json(); setError(d.error || "パスワードが違います"); }
     } catch { setError("エラーが発生しました。"); } finally { setLoading(false); }
   };
 
@@ -58,24 +61,9 @@ export default function Home() {
             <div className="bg-white border border-gray-200 p-5 mb-6">
               <h2 className="text-sm font-semibold text-[#1a1f3a] mb-3 uppercase tracking-wide">About</h2>
               <ul className="text-sm text-gray-600 space-y-2.5">
-                <li className="flex items-start gap-2.5">
-                  <span className="mt-0.5 shrink-0 text-[#c9a84c]">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="8"/><path d="M5 8l2 2 4-4" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  </span>
-                  <span>親がやりたいことをチケットで申請できます</span>
-                </li>
-                <li className="flex items-start gap-2.5">
-                  <span className="mt-0.5 shrink-0 text-[#c9a84c]">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="8"/><path d="M5 8l2 2 4-4" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  </span>
-                  <span>子が承認・辞退・交渉でリクエストに応答できます</span>
-                </li>
-                <li className="flex items-start gap-2.5">
-                  <span className="mt-0.5 shrink-0 text-[#c9a84c]">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="8"/><path d="M5 8l2 2 4-4" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  </span>
-                  <span>チケット枚数で双方の負担を調整できます</span>
-                </li>
+                <li className="flex items-start gap-2.5"><span className="mt-0.5 shrink-0 text-[#c9a84c]"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="8"/><path d="M5 8l2 2 4-4" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg></span><span>親がやりたいことをチケットで申請できます</span></li>
+                <li className="flex items-start gap-2.5"><span className="mt-0.5 shrink-0 text-[#c9a84c]"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="8"/><path d="M5 8l2 2 4-4" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg></span><span>子が承認・辞退・交渉でリクエストに応答できます</span></li>
+                <li className="flex items-start gap-2.5"><span className="mt-0.5 shrink-0 text-[#c9a84c]"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="8"/><path d="M5 8l2 2 4-4" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg></span><span>チケット枚数で双方の負担を調整できます</span></li>
               </ul>
             </div>
             <div className="space-y-3">
@@ -98,16 +86,35 @@ export default function Home() {
           <>
             <div className="mb-6">
               <button onClick={() => setStep("top")} className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-600 transition-colors mb-4">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                戻る
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>戻る
               </button>
               <h2 className="text-xl font-bold text-[#1a1f3a] mb-1">どちらですか？</h2>
               <p className="text-sm text-gray-500">申請者のお名前を選んでください</p>
             </div>
             <div className="space-y-3">
-              <button onClick={() => selectParent("中薗孝幸")} className="w-full bg-[#1a1f3a] hover:bg-[#252b4a] text-white font-semibold py-5 px-6 text-lg transition-colors">中薗孝幸</button>
-              <button onClick={() => selectParent("中薗明子")} className="w-full bg-[#1a1f3a] hover:bg-[#252b4a] text-white font-semibold py-5 px-6 text-lg transition-colors">中薗明子</button>
+              <button onClick={() => handleSelectParent("中薗孝幸")} className="w-full bg-[#1a1f3a] hover:bg-[#252b4a] text-white font-semibold py-5 px-6 text-lg transition-colors">中薗孝幸</button>
+              <button onClick={() => handleSelectParent("中薗明子")} className="w-full bg-[#1a1f3a] hover:bg-[#252b4a] text-white font-semibold py-5 px-6 text-lg transition-colors">中薗明子</button>
             </div>
+          </>
+        )}
+
+        {step === "parent_auth" && (
+          <>
+            <div className="mb-6">
+              <button onClick={() => setStep("select_parent")} className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-600 transition-colors mb-4">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>戻る
+              </button>
+              <h2 className="text-xl font-bold text-[#1a1f3a] mb-1">{selectedParent}</h2>
+              <p className="text-sm text-gray-500">パスワードを入力してください</p>
+            </div>
+            <div className="bg-white border border-gray-200 p-5">
+              <input type="password" value={parentPassword} onChange={e => setParentPassword(e.target.value)} onKeyDown={e => e.key === "Enter" && handleParentAuth()} placeholder="パスワード（未設定の場合は空白でOK）" className="w-full border border-gray-300 px-4 py-3 text-base mb-3 focus:outline-none focus:ring-1 focus:ring-[#1a1f3a] focus:border-[#1a1f3a]" autoFocus />
+              {parentAuthError && <p className="text-red-500 text-sm mb-3">{parentAuthError}</p>}
+              <button onClick={handleParentAuth} disabled={parentAuthLoading} className="w-full bg-[#1a1f3a] hover:bg-[#252b4a] disabled:opacity-40 text-white font-semibold py-3 transition-colors">
+                {parentAuthLoading ? "確認中..." : "入る"}
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 text-center mt-3">初回はそのまま「入る」を押してください</p>
           </>
         )}
 
@@ -115,8 +122,7 @@ export default function Home() {
           <>
             <div className="mb-6">
               <button onClick={() => setStep("top")} className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-600 transition-colors mb-4">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                戻る
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>戻る
               </button>
               <h2 className="text-xl font-bold text-[#1a1f3a] mb-1">パスワードを入力</h2>
               <p className="text-sm text-gray-500">子として使うにはパスワードが必要です</p>

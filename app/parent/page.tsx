@@ -12,19 +12,24 @@ const STATUS: Record<string, { label: string; cls: string }> = {
   withdrawn:   { label: "取り下げ", cls: "bg-gray-100 text-gray-500 border border-gray-200" },
 };
 
-function getNotifiedKey(n: string) { return "notified_ids_" + n; }
-function getNotifiedIds(n: string): string[] {
-  try { return JSON.parse(localStorage.getItem(getNotifiedKey(n)) || "[]"); } catch { return []; }
-}
-function addNotifiedIds(n: string, ids: string[]) {
-  const existing = getNotifiedIds(n);
-  localStorage.setItem(getNotifiedKey(n), JSON.stringify([...new Set([...existing, ...ids])]));
-}
+const TicketIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className="shrink-0">
+    <rect x="1" y="4" width="16" height="10" rx="1" stroke="currentColor" strokeWidth="1.4"/>
+    <line x1="1" y1="8" x2="17" y2="8" stroke="currentColor" strokeWidth="1" strokeDasharray="2 1.5"/>
+    <line x1="1" y1="12" x2="17" y2="12" stroke="currentColor" strokeWidth="1" strokeDasharray="2 1.5"/>
+    <circle cx="4.5" cy="4" r="1.5" fill="#f8f7f4" stroke="currentColor" strokeWidth="1"/>
+    <circle cx="13.5" cy="4" r="1.5" fill="#f8f7f4" stroke="currentColor" strokeWidth="1"/>
+  </svg>
+);
+
+function getNotifiedKey(n: string) { return `notified_ids_${n}`; }
+function getNotifiedIds(n: string): string[] { try { return JSON.parse(localStorage.getItem(getNotifiedKey(n)) || "[]"); } catch { return []; } }
+function addNotifiedIds(n: string, ids: string[]) { const e = getNotifiedIds(n); localStorage.setItem(getNotifiedKey(n), JSON.stringify([...new Set([...e, ...ids])])); }
 
 export default function ParentPage() {
   const router = useRouter();
   const [parentName, setParentName] = useState("");
-  const [tab, setTab] = useState<"request" | "history">("request");
+  const [tab, setTab] = useState<"request" | "history" | "settings">("request");
   const [stats, setStats] = useState<TicketStats | null>(null);
   const [requests, setRequests] = useState<TicketRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,6 +43,10 @@ export default function ParentPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<TicketRequest[]>([]);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [pwLoading, setPwLoading] = useState(false);
+  const [pwMsg, setPwMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
   useEffect(() => {
     if (sessionStorage.getItem("role") !== "parent") { router.push("/"); return; }
@@ -51,7 +60,7 @@ export default function ParentPage() {
     try {
       const pName = name ?? parentName;
       const [sr, rr] = await Promise.all([
-        fetch("/api/tickets" + (pName ? "?parent_name=" + encodeURIComponent(pName) : "")),
+        fetch("/api/tickets" + (pName ? `?parent_name=${encodeURIComponent(pName)}` : "")),
         fetch("/api/requests"),
       ]);
       if (sr.ok) setStats(await sr.json());
@@ -61,52 +70,46 @@ export default function ParentPage() {
         setRequests(myReqs);
         if (pName) {
           const notifiedIds = getNotifiedIds(pName);
-          const newNotifs = myReqs.filter(r => ["approved", "declined"].includes(r.status) && !notifiedIds.includes(r.id));
-          setNotifications(newNotifs);
+          setNotifications(myReqs.filter(r => ["approved", "declined"].includes(r.status) && !notifiedIds.includes(r.id)));
         }
       }
     } finally { setLoading(false); }
   }, [parentName]);
 
-  const dismissNotifications = () => {
-    addNotifiedIds(parentName, notifications.map(r => r.id));
-    setNotifications([]);
-    setTab("history");
-  };
+  const dismissNotifications = () => { addNotifiedIds(parentName, notifications.map(r => r.id)); setNotifications([]); setTab("history"); };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true); setSubmitError(""); setSubmitSuccess(false);
     try {
-      const res = await fetch("/api/requests", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, tickets_requested: parseFloat(tickets), preferred_datetime: dt || null, parent_comment: comment || null, parent_name: parentName || null }),
-      });
-      if (res.ok) {
-        setTitle(""); setTickets(""); setDt(""); setComment("");
-        setSubmitSuccess(true); await fetchData(); setTimeout(() => setSubmitSuccess(false), 3000);
-      } else { const d = await res.json(); setSubmitError(d.error || "申請に失敗しました"); }
+      const res = await fetch("/api/requests", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title, tickets_requested: parseFloat(tickets), preferred_datetime: dt || null, parent_comment: comment || null, parent_name: parentName || null }) });
+      if (res.ok) { setTitle(""); setTickets(""); setDt(""); setComment(""); setSubmitSuccess(true); await fetchData(); setTimeout(() => setSubmitSuccess(false), 3000); }
+      else { const d = await res.json(); setSubmitError(d.error || "申請に失敗しました"); }
     } catch { setSubmitError("エラーが発生しました"); } finally { setSubmitting(false); }
   };
 
   const handleNegResp = async (id: string, action: "agree" | "withdraw") => {
     setActionLoading(id);
-    try {
-      const res = await fetch("/api/requests/" + id, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
-      if (res.ok) await fetchData();
-    } finally { setActionLoading(null); }
+    try { const res = await fetch("/api/requests/" + id, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) }); if (res.ok) await fetchData(); }
+    finally { setActionLoading(null); }
   };
 
   const handleDelete = async (id: string) => {
     try {
       const res = await fetch("/api/requests/" + id, { method: "DELETE" });
-      if (res.ok) {
-        setRequests(prev => prev.filter(r => r.id !== id));
-        setDeleteConfirm(null);
-        const ids = getNotifiedIds(parentName).filter(nid => nid !== id);
-        localStorage.setItem(getNotifiedKey(parentName), JSON.stringify(ids));
-      }
+      if (res.ok) { setRequests(prev => prev.filter(r => r.id !== id)); setDeleteConfirm(null); const n = getNotifiedIds(parentName).filter(i => i !== id); localStorage.setItem(getNotifiedKey(parentName), JSON.stringify(n)); }
     } catch { /* ignore */ }
+  };
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) { setPwMsg({ text: "パスワードが一致しません", ok: false }); return; }
+    setPwLoading(true); setPwMsg(null);
+    try {
+      const res = await fetch("/api/auth/parent", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ parent_name: parentName, new_password: newPassword }) });
+      if (res.ok) { setPwMsg({ text: "パスワードを変更しました", ok: true }); setNewPassword(""); setConfirmPassword(""); }
+      else { const d = await res.json(); setPwMsg({ text: d.error || "エラーが発生しました", ok: false }); }
+    } catch { setPwMsg({ text: "エラーが発生しました", ok: false }); } finally { setPwLoading(false); }
   };
 
   const negReqs = requests.filter(r => r.status === "negotiating");
@@ -118,7 +121,7 @@ export default function ParentPage() {
     <div className="min-h-screen bg-[#f8f7f4]">
       <header className="bg-[#1a1f3a] text-white px-5 py-4 flex items-center justify-between">
         <div>
-          <h1 className="text-base font-semibold tracking-wide">{parentName ? parentName + "の画面" : "親の画面"}</h1>
+          <h1 className="text-base font-semibold tracking-wide">{parentName ? `${parentName}の画面` : "親の画面"}</h1>
           <p className="text-xs text-[#c9a84c] mt-0.5">親孝行チケット</p>
         </div>
         <div className="flex items-center gap-4">
@@ -136,7 +139,7 @@ export default function ParentPage() {
             {notifications.map(n => (
               <div key={n.id} className="mb-3 last:mb-4">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className={"text-xs px-2 py-0.5 font-semibold " + (n.status === "approved" ? "bg-green-500 text-white" : "bg-[#c0714f] text-white")}>{n.status === "approved" ? "承認" : "辞退"}</span>
+                  <span className={`text-xs px-2 py-0.5 font-semibold ${n.status === "approved" ? "bg-green-500 text-white" : "bg-[#c0714f] text-white"}`}>{n.status === "approved" ? "承認" : "辞退"}</span>
                   <p className="text-sm font-semibold">{n.title}</p>
                 </div>
                 {n.child_comment && <p className="text-sm text-white/70 pl-2 border-l border-white/30 ml-1">{n.child_comment}</p>}
@@ -152,17 +155,19 @@ export default function ParentPage() {
         <div className="px-5 pt-5">
           <div className="bg-white border border-gray-200 p-4">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">{"チケット残数（" + parentName + "）"}</p>
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className="text-[#c9a84c] shrink-0"><rect x="1" y="4" width="16" height="10" rx="1" stroke="currentColor" strokeWidth="1.4"/><line x1="1" y1="8" x2="17" y2="8" stroke="currentColor" strokeWidth="1" strokeDasharray="2 1.5"/><line x1="1" y1="12" x2="17" y2="12" stroke="currentColor" strokeWidth="1" strokeDasharray="2 1.5"/><circle cx="4.5" cy="4" r="1.5" fill="#f8f7f4" stroke="currentColor" strokeWidth="1"/><circle cx="13.5" cy="4" r="1.5" fill="#f8f7f4" stroke="currentColor" strokeWidth="1"/></svg>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">チケット残数（{parentName}）</p>
+              <span className="text-[#c9a84c]"><TicketIcon /></span>
             </div>
             <div className="flex items-baseline gap-2 mb-3">
               <span className="text-4xl font-bold text-[#1a1f3a]">{stats.remaining}</span>
               <span className="text-sm text-gray-400">/ {stats.total_limit}枚</span>
             </div>
             <div className="w-full bg-gray-100 h-1.5 mb-3">
-              <div className="bg-[#c9a84c] h-1.5 transition-all" style={{width: Math.min(100,((stats.total_limit-stats.remaining)/stats.total_limit)*100) + "%"}} />
+              <div className="bg-[#c9a84c] h-1.5 transition-all" style={{ width: `${Math.min(100, ((stats.total_limit - stats.remaining) / stats.total_limit) * 100)}%` }} />
             </div>
-            <div className="flex text-xs text-gray-400 gap-5"><span>使用済み {stats.used}枚</span><span>申請中 {stats.pending}枚</span></div>
+            <div className="flex text-xs text-gray-400 gap-5">
+              <span>使用済み {stats.used}枚</span><span>申請中 {stats.pending}枚</span>
+            </div>
             {stats.remaining === 0 && <p className="mt-3 text-sm text-[#c0714f] font-medium border-t border-gray-100 pt-3">チケットが残っていないため新規申請できません</p>}
           </div>
         </div>
@@ -171,7 +176,9 @@ export default function ParentPage() {
       {negReqs.length > 0 && (
         <div className="px-5 pt-4">
           <div className="bg-blue-50 border border-blue-200 p-4">
-            <p className="text-sm font-semibold text-blue-800 mb-3">交渉中のリクエスト</p>
+            <p className="text-sm font-semibold text-blue-800 mb-3 flex items-center gap-2">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 3h12v8H9l-3 3v-3H2V3z" stroke="#1d4ed8" strokeWidth="1.4" strokeLinejoin="round"/></svg>交渉中のリクエスト
+            </p>
             {negReqs.map(req => (
               <div key={req.id} className="bg-white border border-blue-100 p-4 mb-3 last:mb-0">
                 <p className="font-semibold text-[#1a1f3a] mb-1">{req.title}</p>
@@ -189,8 +196,9 @@ export default function ParentPage() {
 
       <div className="px-5 pt-4">
         <div className="flex gap-0 mb-5 border border-gray-200 overflow-hidden">
-          <button onClick={() => setTab("request")} className={"flex-1 py-3 font-semibold text-sm transition-colors " + (tab === "request" ? "bg-[#1a1f3a] text-white" : "bg-white text-gray-500 hover:bg-gray-50")}>申請する</button>
-          <button onClick={() => setTab("history")} className={"flex-1 py-3 font-semibold text-sm transition-colors border-l border-gray-200 " + (tab === "history" ? "bg-[#1a1f3a] text-white" : "bg-white text-gray-500 hover:bg-gray-50")}>履歴・申請中</button>
+          <button onClick={() => setTab("request")} className={`flex-1 py-3 font-semibold text-xs transition-colors ${tab === "request" ? "bg-[#1a1f3a] text-white" : "bg-white text-gray-500 hover:bg-gray-50"}`}>申請する</button>
+          <button onClick={() => setTab("history")} className={`flex-1 py-3 font-semibold text-xs transition-colors border-l border-gray-200 ${tab === "history" ? "bg-[#1a1f3a] text-white" : "bg-white text-gray-500 hover:bg-gray-50"}`}>履歴・申請中</button>
+          <button onClick={() => setTab("settings")} className={`flex-1 py-3 font-semibold text-xs transition-colors border-l border-gray-200 ${tab === "settings" ? "bg-[#1a1f3a] text-white" : "bg-white text-gray-500 hover:bg-gray-50"}`}>設定</button>
         </div>
 
         {tab === "request" && (
@@ -228,12 +236,29 @@ export default function ParentPage() {
           <div className="space-y-3">
             {loading ? <div className="text-center py-10 text-gray-400 text-sm">読み込み中...</div>
             : requests.length === 0 ? <div className="text-center py-10 text-gray-400 text-sm">まだリクエストがありません</div>
-            : (
-              <>
-                {pendReqs.length > 0 && <div><p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">申請中</p>{pendReqs.map(r => <RCard key={r.id} req={r} fmt={fmt} deleteConfirm={deleteConfirm} setDeleteConfirm={setDeleteConfirm} onDelete={handleDelete} />)}</div>}
-                {histReqs.length > 0 && <div><p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 mt-4">過去の履歴</p>{histReqs.map(r => <RCard key={r.id} req={r} fmt={fmt} deleteConfirm={deleteConfirm} setDeleteConfirm={setDeleteConfirm} onDelete={handleDelete} />)}</div>}
-              </>
-            )}
+            : (<>
+              {pendReqs.length > 0 && <div><p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">申請中</p>{pendReqs.map(r => <RCard key={r.id} req={r} fmt={fmt} deleteConfirm={deleteConfirm} setDeleteConfirm={setDeleteConfirm} onDelete={handleDelete} />)}</div>}
+              {histReqs.length > 0 && <div><p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 mt-4">過去の履歴</p>{histReqs.map(r => <RCard key={r.id} req={r} fmt={fmt} deleteConfirm={deleteConfirm} setDeleteConfirm={setDeleteConfirm} onDelete={handleDelete} />)}</div>}
+            </>)}
+          </div>
+        )}
+
+        {tab === "settings" && (
+          <div className="bg-white border border-gray-200 p-5">
+            <h2 className="text-base font-bold text-[#1a1f3a] mb-1">パスワード変更</h2>
+            <p className="text-xs text-gray-400 mb-5">{parentName}のログインパスワードを変更します</p>
+            <form onSubmit={handlePasswordChange} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">新しいパスワード <span className="text-[#c0714f]">*</span></label>
+                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="4文字以上" className="w-full border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#1a1f3a] focus:border-[#1a1f3a]" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">確認（もう一度） <span className="text-[#c0714f]">*</span></label>
+                <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="同じパスワードを入力" className="w-full border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#1a1f3a] focus:border-[#1a1f3a]" />
+              </div>
+              {pwMsg && <p className={`text-sm p-3 border ${pwMsg.ok ? "text-green-700 bg-green-50 border-green-200" : "text-[#c0714f] bg-red-50 border-red-200"}`}>{pwMsg.text}</p>}
+              <button type="submit" disabled={pwLoading || !newPassword || !confirmPassword} className="w-full bg-[#1a1f3a] hover:bg-[#252b4a] disabled:opacity-40 text-white font-bold py-3 text-sm transition-colors">{pwLoading ? "変更中..." : "パスワードを変更する"}</button>
+            </form>
           </div>
         )}
       </div>
@@ -249,7 +274,7 @@ function RCard({ req, fmt, deleteConfirm, setDeleteConfirm, onDelete }: { req: T
     <div className="bg-white border border-gray-200 p-4 mb-2.5">
       <div className="flex items-start justify-between gap-2 mb-2">
         <p className="font-semibold text-[#1a1f3a]">{req.title}</p>
-        <span className={"text-xs px-2 py-1 font-semibold whitespace-nowrap shrink-0 " + s.cls}>{s.label}</span>
+        <span className={`text-xs px-2 py-1 font-semibold whitespace-nowrap shrink-0 ${s.cls}`}>{s.label}</span>
       </div>
       <div className="flex gap-4 text-sm text-gray-500 mb-2 flex-wrap items-center">
         <span className="flex items-center gap-1.5 text-[#c9a84c]">
