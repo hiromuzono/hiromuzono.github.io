@@ -16,17 +16,21 @@ interface AppContextType {
   addGoal: (goal: Omit<Goal, 'id' | 'order' | 'milestones' | 'status'>) => void;
   updateGoal: (id: string, updates: Partial<Goal>) => void;
   deleteGoal: (id: string) => void;
+  reorderGoals: (from: number, to: number) => void;
   addMilestone: (goalId: string, ms: Omit<Milestone, 'id' | 'order' | 'tasks'>) => void;
   updateMilestone: (goalId: string, msId: string, updates: Partial<Milestone>) => void;
   deleteMilestone: (goalId: string, msId: string) => void;
+  reorderMilestones: (goalId: string, from: number, to: number) => void;
   addTask: (goalId: string, msId: string, task: Omit<Task, 'id' | 'order'>) => void;
   updateTask: (goalId: string, msId: string, taskId: string, updates: Partial<Task>) => void;
   deleteTask: (goalId: string, msId: string, taskId: string) => void;
   toggleTask: (goalId: string, msId: string, taskId: string) => void;
+  reorderTasks: (goalId: string, msId: string, from: number, to: number) => void;
   addHabit: (habit: Omit<Habit, 'id' | 'order'>) => void;
   updateHabit: (id: string, updates: Partial<Habit>) => void;
   deleteHabit: (id: string) => void;
   toggleHabitLog: (habitId: string, date: string) => void;
+  importData: (data: AppData) => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -76,6 +80,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     mutate(prev => ({ ...prev, goals: prev.goals.filter(g => g.id !== id) }));
   }, [mutate]);
 
+  const reorderGoals = useCallback((from: number, to: number) => {
+    mutate(prev => {
+      const goals = [...prev.goals];
+      const [item] = goals.splice(from, 1);
+      goals.splice(to, 0, item);
+      return { ...prev, goals };
+    });
+  }, [mutate]);
+
   const addMilestone = useCallback((goalId: string, msData: Omit<Milestone, 'id' | 'order' | 'tasks'>) => {
     mutate(prev => ({
       ...prev,
@@ -102,6 +115,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
       goals: prev.goals.map(g => g.id !== goalId ? g : {
         ...g,
         milestones: g.milestones.filter(m => m.id !== msId),
+      }),
+    }));
+  }, [mutate]);
+
+  const reorderMilestones = useCallback((goalId: string, from: number, to: number) => {
+    mutate(prev => ({
+      ...prev,
+      goals: prev.goals.map(g => {
+        if (g.id !== goalId) return g;
+        const mss = [...g.milestones];
+        const [item] = mss.splice(from, 1);
+        mss.splice(to, 0, item);
+        return { ...g, milestones: mss };
       }),
     }));
   }, [mutate]);
@@ -145,6 +171,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }));
   }, [mutate]);
 
+  const reorderTasks = useCallback((goalId: string, msId: string, from: number, to: number) => {
+    mutate(prev => ({
+      ...prev,
+      goals: prev.goals.map(g => {
+        if (g.id !== goalId) return g;
+        return {
+          ...g,
+          milestones: g.milestones.map(m => {
+            if (m.id !== msId) return m;
+            const tasks = [...m.tasks];
+            const [item] = tasks.splice(from, 1);
+            tasks.splice(to, 0, item);
+            return { ...m, tasks };
+          }),
+        };
+      }),
+    }));
+  }, [mutate]);
+
   const toggleTask = useCallback((goalId: string, msId: string, taskId: string) => {
     mutate(prev => ({
       ...prev,
@@ -173,6 +218,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     mutate(prev => ({ ...prev, habits: prev.habits.filter(h => h.id !== id) }));
   }, [mutate]);
 
+  const importData = useCallback((newData: AppData) => {
+    mutate(() => newData);
+  }, [mutate]);
+
   const toggleHabitLog = useCallback((habitId: string, date: string) => {
     mutate(prev => {
       const logs = prev.habitLogs[habitId] || [];
@@ -186,11 +235,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <AppContext.Provider value={{
       data,
-      addGoal, updateGoal, deleteGoal,
-      addMilestone, updateMilestone, deleteMilestone,
-      addTask, updateTask, deleteTask, toggleTask,
+      addGoal, updateGoal, deleteGoal, reorderGoals,
+      addMilestone, updateMilestone, deleteMilestone, reorderMilestones,
+      addTask, updateTask, deleteTask, toggleTask, reorderTasks,
       addHabit, updateHabit, deleteHabit,
       toggleHabitLog,
+      importData,
     }}>
       {children}
     </AppContext.Provider>
