@@ -386,16 +386,16 @@ function Navigation({ active, onTab, onAddGoal }) {
     <div className="relative border-b border-gray-800 shrink-0" style={{background:'#0a0e1a'}}>
 
       {/* ===== MOBILE NAV (max-width: 768px) ===== */}
-      <div className="flex md:hidden items-stretch">
+      <div className="flex md:hidden items-stretch h-11">
         <button onClick={()=>{onTab('dashboard');setGoalDrawer(false);}}
-          className="flex-1 py-2.5 text-xs font-medium border-b-2 transition-colors"
+          className="flex-1 text-xs font-medium border-b-2 transition-colors"
           style={navTabStyle(active==='dashboard')}>
-          🗓<br/><span style={{fontSize:10}}>ダッシュボード</span>
+          ダッシュボード
         </button>
 
         <div className="flex-1 relative">
           <button onClick={openDrawer}
-            className="w-full py-2.5 text-xs font-medium border-b-2 transition-colors"
+            className="w-full h-full text-xs font-medium border-b-2 transition-colors"
             style={navTabStyle(isGoalActive)}>
             🎯 目標 {goalDrawer ? '▲' : '▼'}
           </button>
@@ -428,9 +428,9 @@ function Navigation({ active, onTab, onAddGoal }) {
         </div>
 
         <button onClick={()=>{onTab('habits');setGoalDrawer(false);}}
-          className="flex-1 py-2.5 text-xs font-medium border-b-2 transition-colors"
+          className="flex-1 text-xs font-medium border-b-2 transition-colors"
           style={navTabStyle(active==='habits')}>
-          ⚡<br/><span style={{fontSize:10}}>習慣</span>
+          ⚡ 習慣
         </button>
 
         <div className="relative shrink-0 flex items-center">
@@ -538,17 +538,14 @@ function Dashboard({ onTabChange }) {
     else if(item.habitId) toggleHabitLog(item.habitId,tStr);
   };
 
-  // ④ 目標の現在地: 今月以降で最も直近のマイルストーンを取得
+  // ④ 各目標の直近マイルストーン（今月以降）とそのタスクを取得
   const goalPositions = data.goals.map(g => {
     const upcoming = [...g.milestones]
       .filter(m => m.period >= tMonth)
       .sort((a, b) => a.period.localeCompare(b.period));
     const ms = upcoming[0];
     if (!ms) return null;
-    const taskTotal = ms.tasks.length;
-    const taskDone = ms.tasks.filter(t => t.done).length;
-    const remaining = taskTotal - taskDone;
-    return { goal: g, ms, remaining, taskTotal };
+    return { goal: g, ms };
   }).filter(Boolean);
 
   const tabBtn=(t,label)=>(
@@ -605,33 +602,51 @@ function Dashboard({ onTabChange }) {
           {data.goals.length===0&&<p className="text-gray-600 text-xs mt-2 text-center">目標を追加すると進捗が表示されます</p>}
         </div>
 
-        {/* ④ 目標の現在地 */}
+        {/* ④ 目標・マイルストーン・タスクのツリー表示 */}
         {goalPositions.length > 0 && (
-          <div className="mt-4 rounded-xl overflow-hidden" style={{background:'rgba(255,255,255,0.04)'}}>
-            <div className="px-4 pt-4 pb-2 border-b border-gray-800">
-              <h3 className="text-gray-400 text-sm font-medium">📍 目標の現在地</h3>
-            </div>
-            {goalPositions.map(({goal, ms, remaining, taskTotal}) => (
-              <button key={goal.id} onClick={()=>onTabChange(goal.id)}
-                className="w-full border-b border-gray-800 last:border-0 transition-colors text-left"
-                style={{background:'transparent'}}
-                onMouseOver={e=>e.currentTarget.style.background='rgba(255,255,255,0.05)'}
-                onMouseOut={e=>e.currentTarget.style.background='transparent'}>
-                <div className="flex items-center gap-2 px-4 py-3 flex-wrap sm:flex-nowrap">
-                  <span className="text-sm font-medium shrink-0" style={{color:goal.color, minWidth:80}}>
-                    {goal.emoji} {goal.name}
-                  </span>
-                  <span className="text-gray-700 shrink-0 hidden sm:inline">│</span>
-                  <span className="text-gray-400 text-xs sm:text-sm truncate flex-1">
-                    📍 {ms.title}（{ms.period}）
-                  </span>
-                  <span className="text-gray-700 shrink-0 hidden sm:inline">│</span>
-                  <span className="text-xs sm:text-sm font-medium shrink-0" style={{color:remaining===0&&taskTotal>0?'#4ade80':'#f59e0b'}}>
-                    残 {remaining}/{taskTotal}タスク
-                  </span>
+          <div className="mt-4 space-y-3">
+            {goalPositions.map(({goal, ms}) => {
+              const badge = getMsBadge(ms.period);
+              return (
+                <div key={goal.id} className="rounded-xl overflow-hidden" style={{background:'rgba(255,255,255,0.04)'}}>
+                  {/* 目標ヘッダー */}
+                  <button onClick={()=>onTabChange(goal.id)}
+                    className="w-full flex items-center gap-2 px-4 py-3 border-b border-gray-800 transition-colors text-left"
+                    style={{background:'rgba(255,255,255,0.03)'}}
+                    onMouseOver={e=>e.currentTarget.style.background='rgba(255,255,255,0.07)'}
+                    onMouseOut={e=>e.currentTarget.style.background='rgba(255,255,255,0.03)'}>
+                    <span style={{width:8,height:8,borderRadius:'50%',background:goal.color,flexShrink:0,display:'inline-block'}}/>
+                    <span className="text-white text-sm font-semibold">{goal.emoji} {goal.name}</span>
+                  </button>
+                  {/* マイルストーン */}
+                  <div className="px-4 pt-2.5 pb-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-gray-500 text-xs">📍</span>
+                      <span className="text-gray-300 text-xs font-medium">{ms.title}</span>
+                      <span className={`text-xs px-1.5 py-0.5 rounded-full ${badge.cls}`}>{badge.label}</span>
+                      <span className="text-gray-600 text-xs">{ms.period}</span>
+                    </div>
+                    {/* タスク一覧 */}
+                    {ms.tasks.length === 0 ? (
+                      <p className="text-gray-700 text-xs pl-4 pb-2">タスクなし</p>
+                    ) : (
+                      <div className="space-y-1 pl-4 pb-2">
+                        {ms.tasks.map(task => (
+                          <div key={task.id} className="flex items-center gap-2">
+                            <span className="text-sm shrink-0" style={{color:task.done?goal.color:'#4b5563'}}>
+                              {task.done ? '✔' : '○'}
+                            </span>
+                            <span className={`text-xs ${task.done?'line-through text-gray-600':'text-gray-300'}`}>
+                              {task.title}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </button>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
