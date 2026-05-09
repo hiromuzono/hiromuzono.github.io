@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DreamTracker - 目標達成管理アプリ</title>
+<meta name="description" content="人生の目標をマイルストーンとタスクで管理し、毎日の習慣と進捗率で夢の達成を追跡するアプリです。">
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  * { box-sizing: border-box; scrollbar-width: none; -ms-overflow-style: none; }
+  *::-webkit-scrollbar { display: none; }
+  body { background: #0a0e1a; margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .line-through { text-decoration: line-through; }
+  .drag-over { border-color: #6366f1 !important; opacity: 0.7; }
+  .dragging { opacity: 0.4; }
+  [draggable] { user-select: none; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useContext, createContext, useRef } = React;
+
+// ========== CONSTANTS ==========
+const GOAL_COLORS = ['#7F77DD','#4CAF50','#FF9800','#E91E63','#2196F3','#FF5722'];
+const WEEKDAYS = ['月','火','水','木','金','土','日'];
+const STORAGE_KEY = 'dreamtracker_data';
+const EMOJIS = ['🎯','🤖','📖','🌍','💪','🚀','💡','🎨','🏆','✨','🔥','⭐'];
+
+// ========== DATE UTILS ==========
+function fmtYM(date) {
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;
+}
+function fmtDate(date) {
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+}
+function addMonths(date, n) {
+  const d = new Date(date); d.setMonth(d.getMonth()+n); return d;
+}
+function startOfMonth(date) { return new Date(date.getFullYear(), date.getMonth(), 1); }
+function endOfMonth(date) { return new Date(date.getFullYear(), date.getMonth()+1, 0); }
+function eachDayOfMonth(date) {
+  const days = [], end = endOfMonth(date);
+  for (let d = startOfMonth(date); d <= end; d.setDate(d.getDate()+1)) days.push(new Date(d));
+  return days;
+}
+const JP_DAYS = ['日','月','火','水','木','金','土'];
+function fmtDateLabel(date) {
+  return `${date.getFullYear()}年${date.getMonth()+1}月${date.getDate()}日（${JP_DAYS[date.getDay()]}）`;
+}
+function calcElapsedPct(startDate, deadline) {
+  const now = new Date(), start = new Date(startDate+'-01'), end = new Date(deadline+'-01');
+  const total = end - start;
+  if (total <= 0) return 100;
+  return Math.min(100, Math.max(0, Math.round(((now-start)/total)*100)));
+}
+function diffMonths(a, b) {
+  const da = new Date(a+'-01'), db = new Date(b+'-01');
+  return (da.getFullYear()-db.getFullYear())*12 + (da.getMonth()-db.getMonth());
+}
+
+// ========== STORAGE ==========
+const genId = () => Math.random().toString(36).slice(2,9);
+const defaultData = { goals: [], habits: [], habitLogs: {} };
+function loadData() {
+  try { const s = localStorage.getItem(STORAGE_KEY); return s ? JSON.parse(s) : defaultData; }
+  catch { return defaultData; }
+}
+function saveData(data) { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+
+// ========== CONTEXT ==========
+const AppContext = createContext(null);
+function useApp() { return useContext(AppContext); }
+
+function AppProvider({ children }) {
+  const [data, setData] = useState(() => loadData());
+  const mutate = useCallback((updater) => {
+    setData(prev => { const next = updater(prev); saveData(next); return next; });
+  }, []);
+
+  const addGoal = (d) => mutate(p => ({ ...p, goals: [...p.goals, {...d, id:`g_${genId()}`, order:p.goals.length, milestones:[], status:'active'}] }));
+  const updateGoal = (id,u) => mutate(p => ({ ...p, goals: p.goals.map(g => g.id===id?{...g,...u}:g) }));
+  const deleteGoal = (id) => mutate(p => ({ ...p, goals: p.goals.filter(g=>g.id!==id) }));
+  const reorderGoals = (from, to) => mutate(p => {
+    const goals=[...p.goals]; const [item]=goals.splice(from,1); goals.splice(to,0,item); return {...p,goals};
+  });
+
+  const addMilestone = (gid,d) => mutate(p => ({ ...p, goals: p.goals.map(g=>g.id!==gid?g:{...g,milestones:[...g.milestones,{...d,id:`ms_${genId()}`,order:g.milestones.length,tasks:[]}]}) }));
+  const updateMilestone = (gid,mid,u) => mutate(p => ({ ...p, goals: p.goals.map(g=>g.id!==gid?g:{...g,milestones:g.milestones.map(m=>m.id===mid?{...m,...u}:m)}) }));
+  const deleteMilestone = (gid,mid) => mutate(p => ({ ...p, goals: p.goals.map(g=>g.id!==gid?g:{...g,milestones:g.milestones.filter(m=>m.id!==mid)}) }));
+  const reorderMilestones = (gid, from, to) => mutate(p => ({
+    ...p, goals: p.goals.map(g => {
+      if (g.id!==gid) return g;
+      const mss=[...g.milestones]; const [item]=mss.splice(from,1); mss.splice(to,0,item); return {...g,milestones:mss};
+    })
+  }));
+
+  const addTask = (gid,mid,d) => mutate(p => ({ ...p, goals: p.goals.map(g=>g.id!==gid?g:{...g,milestones:g.milestones.map(m=>m.id!==mid?m:{...m,tasks:[...m.tasks,{...d,id:`t_${genId()}`,order:m.tasks.length}]})}) }));
+  const updateTask = (gid,mid,tid,u) => mutate(p => ({ ...p, goals: p.goals.map(g=>g.id!==gid?g:{...g,milestones:g.milestones.map(m=>m.id!==mid?m:{...m,tasks:m.tasks.map(t=>t.id===tid?{...t,...u}:t)})}) }));
+  const deleteTask = (gid,mid,tid) => mutate(p => ({ ...p, goals: p.goals.map(g=>g.id!==gid?g:{...g,milestones:g.milestones.map(m=>m.id!==mid?m:{...m,tasks:m.tasks.filter(t=>t.id!==tid)})}) }));
+  const toggleTask = (gid,mid,tid) => mutate(p => ({ ...p, goals: p.goals.map(g=>g.id!==gid?g:{...g,milestones:g.milestones.map(m=>m.id!==mid?m:{...m,tasks:m.tasks.map(t=>t.id===tid?{...t,done:!t.done}:t)})}) }));
+  const reorderTasks = (gid,mid,from,to) => mutate(p => ({
+    ...p, goals: p.goals.map(g => {
+      if (g.id!==gid) return g;
+      return {...g, milestones: g.milestones.map(m => {
+        if (m.id!==mid) return m;
+        const tasks=[...m.tasks]; const [item]=tasks.splice(from,1); tasks.splice(to,0,item); return {...m,tasks};
+      })};
+    })
+  }));
+
+  const addHabit = (d) => mutate(p => ({ ...p, habits: [...p.habits, {...d, id:`h_${genId()}`, order:p.habits.length}] }));
+  const updateHabit = (id,u) => mutate(p => ({ ...p, habits: p.habits.map(h=>h.id===id?{...h,...u}:h) }));
+  const deleteHabit = (id) => mutate(p => ({ ...p, habits: p.habits.filter(h=>h.id!==id) }));
+  const toggleHabitLog = (hid,date) => mutate(p => {
+    const logs=p.habitLogs[hid]||[];
+    const newLogs=logs.includes(date)?logs.filter(d=>d!==date):[...logs,date];
+    return {...p, habitLogs:{...p.habitLogs,[hid]:newLogs}};
+  });
+  const importData = (newData) => mutate(() => newData);
+
+  return (
+    <AppContext.Provider value={{ data, addGoal, updateGoal, deleteGoal, reorderGoals, addMilestone, updateMilestone, deleteMilestone, reorderMilestones, addTask, updateTask, deleteTask, toggleTask, reorderTasks, addHabit, updateHabit, deleteHabit, toggleHabitLog, importData }}>
+      {children}
+    </AppContext.Provider>
+  );
+}
+
+// ========== UTILS ==========
+function calcTaskPct(tasks) {
+  if (!tasks.length) return { taskPct:0, timePct:0 };
+  const done=tasks.filter(t=>t.done).length;
+  const taskPct=Math.round((done/tasks.length)*100);
+  const total=tasks.reduce((s,t)=>s+(t.estimatedMinutes||1),0);
+  const doneT=tasks.filter(t=>t.done).reduce((s,t)=>s+(t.estimatedMinutes||1),0);
+  const timePct=total===0?0:Math.round((doneT/total)*100);
+  return { taskPct, timePct };
+}
+function calcStreak(logs) {
+  let streak=0; const d=new Date();
+  while(true){ const ds=fmtDate(d); if(logs.includes(ds)){streak++;d.setDate(d.getDate()-1);}else break; }
+  return streak;
+}
+function getMsBadge(period) {
+  const now=fmtYM(new Date()), next1=fmtYM(addMonths(new Date(),1)), next2=fmtYM(addMonths(new Date(),2));
+  if(period<now) return { label:'期限切れ', cls:'bg-red-500/20 text-red-400' };
+  if(period===now) return { label:'今月', cls:'bg-blue-500/20 text-blue-400' };
+  if(period===next1||period===next2) return { label:'近日', cls:'bg-green-500/20 text-green-400' };
+  return { label:'予定', cls:'bg-gray-700 text-gray-400' };
+}
+
+// ========== MODALS ==========
+function Modal({ title, onClose, children }) {
+  return (
+    <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{background:'rgba(0,0,0,0.7)'}}>
+      <div className="rounded-2xl w-full max-w-md border border-gray-700" style={{background:'#111827',maxHeight:'90vh',overflowY:'auto'}}>
+        <div className="flex items-center justify-between p-5 border-b border-gray-700 sticky top-0" style={{background:'#111827'}}>
+          <h2 className="text-white font-semibold text-lg">{title}</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-white text-xl w-8 h-8 flex items-center justify-center">✕</button>
+        </div>
+        <div className="p-5 space-y-4">{children}</div>
+      </div>
+    </div>
+  );
+}
+const inputCls = "w-full rounded-lg px-3 py-2 border border-gray-700 text-white outline-none text-sm focus:border-indigo-500";
+const inputSt = {background:'#1f2937'};
+
+function GoalModal({ goal, onClose }) {
+  const { addGoal, updateGoal } = useApp();
+  const [name,setName]=useState(goal?.name||'');
+  const [emoji,setEmoji]=useState(goal?.emoji||'🎯');
+  const [color,setColor]=useState(goal?.color||GOAL_COLORS[0]);
+  const [desc,setDesc]=useState(goal?.description||'');
+  const [start,setStart]=useState(goal?.startDate||fmtYM(new Date()));
+  const [dead,setDead]=useState(goal?.deadline||'');
+  const submit=(e)=>{
+    e.preventDefault(); if(!name.trim()||!start||!dead) return;
+    if(goal) updateGoal(goal.id,{name,emoji,color,description:desc,startDate:start,deadline:dead});
+    else addGoal({name,emoji,color,description:desc,startDate:start,deadline:dead});
+    onClose();
+  };
+  return (
+    <Modal title={goal?'目標を編集':'目標を追加'} onClose={onClose}>
+      <form onSubmit={submit} className="space-y-4">
+        <div><label className="text-gray-400 text-sm block mb-1">絵文字</label>
+          <div className="flex flex-wrap gap-2">{EMOJIS.map(e=>(
+            <button key={e} type="button" onClick={()=>setEmoji(e)} className={`w-9 h-9 text-xl rounded-lg border-2 ${emoji===e?'border-indigo-500':'border-gray-700'}`} style={{background:emoji===e?'rgba(99,102,241,0.2)':'transparent'}}>{e}</button>
+          ))}</div>
+        </div>
+        <div><label className="text-gray-400 text-sm block mb-1">カラー</label>
+          <div className="flex gap-2">{GOAL_COLORS.map(c=>(
+            <button key={c} type="button" onClick={()=>setColor(c)} style={{background:c,width:32,height:32,borderRadius:'50%',border:color===c?'3px solid white':'3px solid transparent'}} />
+          ))}</div>
+        </div>
+        <div><label className="text-gray-400 text-sm block mb-1">目標名 *</label>
+          <input value={name} onChange={e=>setName(e.target.value)} required className={inputCls} style={inputSt} placeholder="目標名を入力" /></div>
+        <div><label className="text-gray-400 text-sm block mb-1">説明</label>
+          <textarea value={desc} onChange={e=>setDesc(e.target.value)} rows={2} className={inputCls} style={inputSt} placeholder="説明（任意）" /></div>
+        <div className="grid grid-cols-2 gap-3">
+          <div><label className="text-gray-400 text-sm block mb-1">開始年月 *</label>
+            <input type="month" value={start} onChange={e=>setStart(e.target.value)} required className={inputCls} style={inputSt} /></div>
+          <div><label className="text-gray-400 text-sm block mb-1">期限 *</label>
+            <input type="month" value={dead} onChange={e=>setDead(e.target.value)} required className={inputCls} style={inputSt} /></div>
+        </div>
+        <div className="flex gap-3 pt-2">
+          <button type="button" onClick={onClose} className="flex-1 py-2 rounded-lg border border-gray-700 text-gray-400 text-sm">キャンセル</button>
+          <button type="submit" className="flex-1 py-2 rounded-lg text-white font-medium text-sm" style={{background:'#4f46e5'}}>{goal?'保存':'追加'}</button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function MilestoneModal({ goalId, milestone, onClose }) {
+  const { addMilestone, updateMilestone } = useApp();
+  const [title,setTitle]=useState(milestone?.title||'');
+  const [period,setPeriod]=useState(milestone?.period||'');
+  const [desc,setDesc]=useState(milestone?.description||'');
+  const submit=(e)=>{
+    e.preventDefault(); if(!title.trim()||!period) return;
+    if(milestone) updateMilestone(goalId,milestone.id,{title,period,description:desc});
+    else addMilestone(goalId,{title,period,description:desc});
+    onClose();
+  };
+  return (
+    <Modal title={milestone?'マイルストーンを編集':'マイルストーンを追加'} onClose={onClose}>
+      <form onSubmit={submit} className="space-y-4">
+        <div><label className="text-gray-400 text-sm block mb-1">タイトル *</label>
+          <input value={title} onChange={e=>setTitle(e.target.value)} required className={inputCls} style={inputSt} placeholder="マイルストーン名" /></div>
+        <div><label className="text-gray-400 text-sm block mb-1">対象月 *</label>
+          <input type="month" value={period} onChange={e=>setPeriod(e.target.value)} required className={inputCls} style={inputSt} /></div>
+        <div><label className="text-gray-400 text-sm block mb-1">説明</label>
+          <textarea value={desc} onChange={e=>setDesc(e.target.value)} rows={2} className={inputCls} style={inputSt} placeholder="説明（任意）" /></div>
+        <div className="flex gap-3 pt-2">
+          <button type="button" onClick={onClose} className="flex-1 py-2 rounded-lg border border-gray-700 text-gray-400 text-sm">キャンセル</button>
+          <button type="submit" className="flex-1 py-2 rounded-lg text-white font-medium text-sm" style={{background:'#4f46e5'}}>{milestone?'保存':'追加'}</button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function TaskModal({ goalId, milestoneId, task, onClose }) {
+  const { addTask, updateTask } = useApp();
+  const [title,setTitle]=useState(task?.title||'');
+  const [note,setNote]=useState(task?.note||'');
+  const [mins,setMins]=useState(task?.estimatedMinutes!=null?String(task.estimatedMinutes):'');
+  const submit=(e)=>{
+    e.preventDefault(); if(!title.trim()) return;
+    const estimatedMinutes=mins!==''?Number(mins):null;
+    if(task) updateTask(goalId,milestoneId,task.id,{title,note,estimatedMinutes});
+    else addTask(goalId,milestoneId,{title,note,estimatedMinutes,done:false});
+    onClose();
+  };
+  return (
+    <Modal title={task?'タスクを編集':'タスクを追加'} onClose={onClose}>
+      <form onSubmit={submit} className="space-y-4">
+        <div><label className="text-gray-400 text-sm block mb-1">タイトル *</label>
+          <input value={title} onChange={e=>setTitle(e.target.value)} required className={inputCls} style={inputSt} placeholder="タスク名" /></div>
+        <div><label className="text-gray-400 text-sm block mb-1">補足メモ</label>
+          <textarea value={note} onChange={e=>setNote(e.target.value)} rows={2} className={inputCls} style={inputSt} placeholder="補足メモ（任意）" /></div>
+        <div><label className="text-gray-400 text-sm block mb-1">見積もり時間（分）</label>
+          <input type="number" min="1" value={mins} onChange={e=>setMins(e.target.value)} className={inputCls} style={inputSt} placeholder="例: 30" /></div>
+        <div className="flex gap-3 pt-2">
+          <button type="button" onClick={onClose} className="flex-1 py-2 rounded-lg border border-gray-700 text-gray-400 text-sm">キャンセル</button>
+          <button type="submit" className="flex-1 py-2 rounded-lg text-white font-medium text-sm" style={{background:'#4f46e5'}}>{task?'保存':'追加'}</button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function HabitModal({ habit, defaultType='daily', onClose }) {
+  const { data, addHabit, updateHabit } = useApp();
+  const [title,setTitle]=useState(habit?.title||'');
+  const [note,setNote]=useState(habit?.note||'');
+  const [type,setType]=useState(habit?.type||defaultType);
+  const [days,setDays]=useState(habit?.days||[]);
+  const [goalId,setGoalId]=useState(habit?.goalId||'');
+  const toggleDay=(d)=>setDays(prev=>prev.includes(d)?prev.filter(x=>x!==d):[...prev,d]);
+  const submit=(e)=>{
+    e.preventDefault(); if(!title.trim()) return;
+    const payload={title,note,type,days:type==='weekly'?days:[],goalId};
+    if(habit) updateHabit(habit.id,payload); else addHabit(payload);
+    onClose();
+  };
+  return (
+    <Modal title={habit?'習慣を編集':'習慣を追加'} onClose={onClose}>
+      <form onSubmit={submit} className="space-y-4">
+        <div><label className="text-gray-400 text-sm block mb-1">タイトル *</label>
+          <input value={title} onChange={e=>setTitle(e.target.value)} required className={inputCls} style={inputSt} placeholder="習慣名" /></div>
+        <div><label className="text-gray-400 text-sm block mb-1">補足メモ</label>
+          <input value={note} onChange={e=>setNote(e.target.value)} className={inputCls} style={inputSt} placeholder="補足（任意）" /></div>
+        <div>
+          <label className="text-gray-400 text-sm block mb-2">種類 *</label>
+          <div className="flex gap-2">{['daily','weekly','monthly'].map(t=>(
+            <button key={t} type="button" onClick={()=>setType(t)} className="flex-1 py-2 rounded-lg text-sm font-medium border"
+              style={{background:type===t?'#4f46e5':'#1f2937',color:type===t?'white':'#9ca3af',borderColor:type===t?'#4f46e5':'#374151'}}>
+              {t==='daily'?'毎日':t==='weekly'?'毎週':'毎月'}
+            </button>
+          ))}</div>
+        </div>
+        {type==='weekly' && (
+          <div>
+            <label className="text-gray-400 text-sm block mb-2">曜日</label>
+            <div className="flex gap-1 flex-wrap">{WEEKDAYS.map(d=>(
+              <button key={d} type="button" onClick={()=>toggleDay(d)} className="w-9 h-9 rounded-lg text-sm font-medium border"
+                style={{background:days.includes(d)?'#4f46e5':'#1f2937',color:days.includes(d)?'white':'#9ca3af',borderColor:days.includes(d)?'#4f46e5':'#374151'}}>{d}</button>
+            ))}</div>
+          </div>
+        )}
+        <div>
+          <label className="text-gray-400 text-sm block mb-1">関連目標</label>
+          <select value={goalId} onChange={e=>setGoalId(e.target.value)} className={inputCls} style={inputSt}>
+            <option value="">なし</option>
+            {data.goals.map(g=><option key={g.id} value={g.id}>{g.emoji} {g.name}</option>)}
+          </select>
+        </div>
+        <div className="flex gap-3 pt-2">
+          <button type="button" onClick={onClose} className="flex-1 py-2 rounded-lg border border-gray-700 text-gray-400 text-sm">キャンセル</button>
+          <button type="submit" className="flex-1 py-2 rounded-lg text-white font-medium text-sm" style={{background:'#4f46e5'}}>{habit?'保存':'追加'}</button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ========== EXPORT/IMPORT MENU ==========
+function ExportImportMenu({ onClose }) {
+  const { data, importData } = useApp();
+  const fileRef = useRef(null);
+  const handleExport = () => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `dreamtracker_${fmtDate(new Date())}.json`; a.click();
+    URL.revokeObjectURL(url); onClose();
+  };
+  const handleImport = (e) => {
+    const file = e.target.files?.[0]; if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const parsed = JSON.parse(ev.target.result);
+        if (parsed.goals && parsed.habits && parsed.habitLogs) {
+          if (confirm('現在のデータを上書きしてインポートしますか？')) { importData(parsed); onClose(); }
+        } else alert('無効なDreamTrackerデータファイルです');
+      } catch { alert('JSONファイルの読み込みに失敗しました'); }
+    };
+    reader.readAsText(file); e.target.value='';
+  };
+  return (
+    <div className="absolute top-full right-0 z-50 rounded-xl shadow-2xl border border-gray-700 overflow-hidden" style={{background:'#111827',width:200}}>
+      <button onClick={handleExport} className="w-full flex items-center gap-2 px-4 py-3 text-sm text-gray-300 hover:text-white hover:bg-gray-800 transition-colors text-left">
+        ⬇️ データをエクスポート
+      </button>
+      <button onClick={()=>fileRef.current?.click()} className="w-full flex items-center gap-2 px-4 py-3 text-sm text-gray-300 hover:text-white hover:bg-gray-800 transition-colors border-t border-gray-800 text-left">
+        ⬆️ データをインポート
+      </button>
+      <input ref={fileRef} type="file" accept=".json" style={{display:'none'}} onChange={handleImport} />
+    </div>
+  );
+}
+
+// ========== NAVIGATION ==========
+function Navigation({ active, onTab, onAddGoal }) {
+  const { data } = useApp();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [goalDrawer, setGoalDrawer] = useState(false);
+  const currentGoal = data.goals.find(g => g.id === active);
+  const isGoalActive = !!currentGoal;
+
+  const navTabStyle = (isActive) => ({
+    borderColor: isActive ? '#6366f1' : 'transparent',
+    color: isActive ? 'white' : '#6b7280'
+  });
+
+  const openMenu = () => { setGoalDrawer(false); setMenuOpen(v => !v); };
+  const openDrawer = () => { setMenuOpen(false); setGoalDrawer(v => !v); };
+
+  return (
+    <div className="relative border-b border-gray-800 shrink-0" style={{background:'#0a0e1a'}}>
+
+      {/* ===== MOBILE NAV (max-width: 768px) ===== */}
+      <div className="flex md:hidden items-stretch">
+        <button onClick={()=>{onTab('dashboard');setGoalDrawer(false);}}
+          className="flex-1 py-2.5 text-xs font-medium border-b-2 transition-colors"
+          style={navTabStyle(active==='dashboard')}>
+          🗓<br/><span style={{fontSize:10}}>ダッシュボード</span>
+        </button>
+
+        <div className="flex-1 relative">
+          <button onClick={openDrawer}
+            className="w-full py-2.5 text-xs font-medium border-b-2 transition-colors"
+            style={navTabStyle(isGoalActive)}>
+            🎯 目標 {goalDrawer ? '▲' : '▼'}
+          </button>
+          {goalDrawer && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={()=>setGoalDrawer(false)} />
+              <div className="absolute top-full left-0 z-50 shadow-2xl border border-gray-700 rounded-b-xl overflow-hidden"
+                style={{background:'#111827', minWidth:'180px', maxWidth:'260px'}}>
+                {data.goals.length === 0 && (
+                  <p className="px-4 py-3 text-xs text-gray-500 text-center">目標がありません</p>
+                )}
+                {data.goals.map(g => (
+                  <button key={g.id} onClick={()=>{onTab(g.id);setGoalDrawer(false);}}
+                    className="w-full flex items-center gap-2 px-4 py-3 text-sm text-left border-b border-gray-800 last:border-0 transition-colors"
+                    style={{color:active===g.id?'white':'#9ca3af',background:active===g.id?'rgba(99,102,241,0.2)':'transparent'}}>
+                    <span style={{width:8,height:8,borderRadius:'50%',background:g.color,display:'inline-block',flexShrink:0}}/>
+                    <span className="truncate">{g.emoji} {g.name}</span>
+                  </button>
+                ))}
+                <button onClick={()=>{onAddGoal();setGoalDrawer(false);}}
+                  className="w-full flex items-center gap-2 px-4 py-3 text-sm border-t border-gray-700 transition-colors"
+                  style={{color:'#6b7280'}}
+                  onMouseOver={e=>e.currentTarget.style.color='#818cf8'}
+                  onMouseOut={e=>e.currentTarget.style.color='#6b7280'}>
+                  ＋ 目標を追加
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
+        <button onClick={()=>{onTab('habits');setGoalDrawer(false);}}
+          className="flex-1 py-2.5 text-xs font-medium border-b-2 transition-colors"
+          style={navTabStyle(active==='habits')}>
+          ⚡<br/><span style={{fontSize:10}}>習慣</span>
+        </button>
+
+        <div className="relative shrink-0 flex items-center">
+          <button onClick={openMenu} className="px-3 h-full text-gray-500 text-base">
+            {menuOpen ? '✕' : '⚙️'}
+          </button>
+          {menuOpen && <ExportImportMenu onClose={()=>setMenuOpen(false)} />}
+        </div>
+      </div>
+
+      {/* ===== DESKTOP NAV (md+) ===== */}
+      <div className="hidden md:flex items-center">
+        <button onClick={()=>onTab('dashboard')} className="flex items-center gap-1 px-4 py-3.5 text-sm font-medium border-b-2 shrink-0 transition-colors whitespace-nowrap"
+          style={navTabStyle(active==='dashboard')}>
+          🗓 ダッシュボード
+        </button>
+        <div className="flex items-center overflow-x-auto flex-1">
+          {data.goals.map(g=>(
+            <button key={g.id} onClick={()=>onTab(g.id)} className="flex items-center gap-1.5 px-4 py-3.5 text-sm font-medium border-b-2 shrink-0 transition-colors"
+              style={navTabStyle(active===g.id)}>
+              <span style={{width:8,height:8,borderRadius:'50%',background:g.color,flexShrink:0,display:'inline-block'}}/>
+              <span style={{maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{g.emoji} {g.name}</span>
+            </button>
+          ))}
+          <button onClick={onAddGoal} className="flex items-center gap-1 px-3 py-3.5 text-sm border-b-2 border-transparent shrink-0 whitespace-nowrap transition-colors"
+            style={{color:'#4b5563'}} onMouseOver={e=>e.currentTarget.style.color='#818cf8'} onMouseOut={e=>e.currentTarget.style.color='#4b5563'}>
+            ＋ 目標追加
+          </button>
+        </div>
+        <button onClick={()=>onTab('habits')} className="flex items-center gap-1 px-4 py-3.5 text-sm font-medium border-b-2 shrink-0 transition-colors whitespace-nowrap"
+          style={navTabStyle(active==='habits')}>
+          ⚡ 習慣
+        </button>
+        <div className="relative shrink-0 pr-2">
+          <button onClick={openMenu} className="p-2 rounded-lg transition-colors" style={{color:'#6b7280'}}
+            onMouseOver={e=>e.currentTarget.style.color='#d1d5db'} onMouseOut={e=>e.currentTarget.style.color='#6b7280'}>
+            {menuOpen ? '✕' : '⚙️'}
+          </button>
+          {menuOpen && <ExportImportMenu onClose={()=>setMenuOpen(false)} />}
+        </div>
+      </div>
+
+      {menuOpen && <div className="fixed inset-0 z-40" onClick={()=>setMenuOpen(false)} />}
+    </div>
+  );
+}
+
+// ========== PROGRESS BAR ==========
+function PBar({ pct, color, label }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-gray-400 text-xs shrink-0" style={{width:64}}>{label}</span>
+      <div className="flex-1 h-2 rounded-full overflow-hidden" style={{background:'#374151'}}>
+        <div className="h-full rounded-full transition-all duration-500" style={{width:`${pct}%`,background:color||'#6366f1'}} />
+      </div>
+      <span className="text-gray-300 text-sm font-medium text-right" style={{width:40}}>{pct}%</span>
+    </div>
+  );
+}
+
+// ========== DASHBOARD ==========
+function Dashboard({ onTabChange }) {
+  const { data, toggleTask, toggleHabitLog } = useApp();
+  const [tab,setTab]=useState('today');
+  const [showDone,setShowDone]=useState(false);
+  const today=new Date(), tStr=fmtDate(today), tMonth=fmtYM(today);
+  const goalMap=new Map(data.goals.map(g=>[g.id,g]));
+  let items=[];
+  if(tab==='today'){
+    data.habits.filter(h=>h.type==='daily').forEach(h=>{
+      const g=h.goalId?goalMap.get(h.goalId):null;
+      const done=(data.habitLogs[h.id]||[]).includes(tStr);
+      items.push({type:'habit',id:h.id,title:h.title,goalColor:g?.color,goalEmoji:g?.emoji,goalName:g?.name,done,habitId:h.id,label:'毎日習慣'});
+    });
+    const todayDay=JP_DAYS[today.getDay()];
+    data.habits.filter(h=>h.type==='weekly'&&h.days.includes(todayDay)).forEach(h=>{
+      const g=h.goalId?goalMap.get(h.goalId):null;
+      items.push({type:'habit',id:`w-${h.id}`,title:h.title,goalColor:g?.color,goalEmoji:g?.emoji,goalName:g?.name,done:false,habitId:h.id,label:'毎週習慣'});
+    });
+  }
+  if(tab==='week'){
+    data.habits.filter(h=>h.type==='weekly').forEach(h=>{
+      const g=h.goalId?goalMap.get(h.goalId):null;
+      items.push({type:'habit',id:h.id,title:h.title,goalColor:g?.color,goalEmoji:g?.emoji,goalName:g?.name,done:false,habitId:h.id,label:`毎週(${h.days.join('・')})`});
+    });
+  }
+  if(tab==='month'){
+    data.habits.filter(h=>h.type==='monthly').forEach(h=>{
+      const g=h.goalId?goalMap.get(h.goalId):null;
+      items.push({type:'habit',id:h.id,title:h.title,goalColor:g?.color,goalEmoji:g?.emoji,goalName:g?.name,done:false,habitId:h.id,label:'毎月習慣'});
+    });
+    data.goals.forEach(g=>{
+      g.milestones.filter(m=>m.period===tMonth).forEach(ms=>{
+        ms.tasks.forEach(t=>items.push({type:'task',id:t.id,title:t.title,goalColor:g.color,goalEmoji:g.emoji,goalName:g.name,done:t.done,milestoneId:ms.id,taskId:t.id,goalId:g.id,label:ms.title}));
+      });
+    });
+  }
+  const filtered=showDone?items:items.filter(i=>!i.done);
+  const allTasks=data.goals.flatMap(g=>g.milestones.flatMap(m=>m.tasks));
+  const total=allTasks.reduce((s,t)=>s+(t.estimatedMinutes||1),0);
+  const done=allTasks.filter(t=>t.done).reduce((s,t)=>s+(t.estimatedMinutes||1),0);
+  const overallPct=total===0?0:Math.round((done/total)*100);
+  const handleToggle=(item)=>{
+    if(item.type==='task') toggleTask(item.goalId,item.milestoneId,item.taskId);
+    else if(item.habitId) toggleHabitLog(item.habitId,tStr);
+  };
+
+  // ④ 目標の現在地: 今月以降で最も直近のマイルストーンを取得
+  const goalPositions = data.goals.map(g => {
+    const upcoming = [...g.milestones]
+      .filter(m => m.period >= tMonth)
+      .sort((a, b) => a.period.localeCompare(b.period));
+    const ms = upcoming[0];
+    if (!ms) return null;
+    const taskTotal = ms.tasks.length;
+    const taskDone = ms.tasks.filter(t => t.done).length;
+    const remaining = taskTotal - taskDone;
+    return { goal: g, ms, remaining, taskTotal };
+  }).filter(Boolean);
+
+  const tabBtn=(t,label)=>(
+    <button onClick={()=>setTab(t)} className="px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
+      style={{background:tab===t?'#4f46e5':'transparent',color:tab===t?'white':'#9ca3af'}}>{label}</button>
+  );
+  return (
+    <div className="flex flex-col h-full">
+      <div className="p-4 sm:p-6 border-b border-gray-800">
+        <h1 className="text-white text-xl font-bold mb-0.5">🗓 ダッシュボード</h1>
+        <p className="text-gray-500 text-sm">{fmtDateLabel(today)}</p>
+      </div>
+      <div className="px-4 sm:px-6 py-3 border-b border-gray-800 flex items-center gap-3 flex-wrap">
+        <div className="flex gap-1 p-1 rounded-lg" style={{background:'#1f2937'}}>
+          {tabBtn('today','今日')}{tabBtn('week','今週')}{tabBtn('month','今月')}
+        </div>
+        <button onClick={()=>setShowDone(v=>!v)} className="text-xs px-3 py-1.5 rounded-lg border transition-colors"
+          style={{borderColor:showDone?'#6366f1':'#374151',color:showDone?'#818cf8':'#6b7280'}}>
+          {showDone?'完了済みを非表示':'完了済みを表示'}
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+        {filtered.length===0?(
+          <div className="text-center py-12">
+            <p className="text-4xl mb-3">🎉</p>
+            <p className="text-white font-medium">今日のタスクは全部完了！</p>
+            <p className="text-gray-500 text-sm mt-1">お疲れ様でした</p>
+          </div>
+        ):(
+          <div className="space-y-2">
+            {filtered.map(item=>(
+              <div key={item.id} className="flex items-center gap-3 py-3 px-4 rounded-xl" style={{background:'rgba(255,255,255,0.04)'}}>
+                {item.goalColor&&<div style={{width:10,height:10,borderRadius:'50%',background:item.goalColor,flexShrink:0}}/>}
+                <button onClick={()=>handleToggle(item)} className="shrink-0 text-lg">{item.done?'✅':'⭕'}</button>
+                <div className="flex-1 min-w-0">
+                  <span className={`text-sm ${item.done?'line-through text-gray-600':'text-gray-200'}`}>{item.title}</span>
+                  {item.label&&<span className="ml-2 text-xs text-gray-600 px-1.5 py-0.5 rounded" style={{background:'#374151'}}>{item.label}</span>}
+                </div>
+                {item.goalEmoji&&<span className="text-xs text-gray-500 shrink-0 hidden sm:inline">{item.goalEmoji} {item.goalName}</span>}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 全体進捗 */}
+        <div className="mt-6 p-4 rounded-xl" style={{background:'rgba(255,255,255,0.04)'}}>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-gray-400 text-sm">全目標の総合進捗</span>
+            <span className="text-white font-medium">{overallPct}%</span>
+          </div>
+          <div className="h-2.5 rounded-full overflow-hidden" style={{background:'#374151'}}>
+            <div className="h-full rounded-full transition-all duration-700" style={{width:`${overallPct}%`,background:'linear-gradient(90deg,#6366f1,#a855f7)'}}/>
+          </div>
+          {data.goals.length===0&&<p className="text-gray-600 text-xs mt-2 text-center">目標を追加すると進捗が表示されます</p>}
+        </div>
+
+        {/* ④ 目標の現在地 */}
+        {goalPositions.length > 0 && (
+          <div className="mt-4 rounded-xl overflow-hidden" style={{background:'rgba(255,255,255,0.04)'}}>
+            <div className="px-4 pt-4 pb-2 border-b border-gray-800">
+              <h3 className="text-gray-400 text-sm font-medium">📍 目標の現在地</h3>
+            </div>
+            {goalPositions.map(({goal, ms, remaining, taskTotal}) => (
+              <button key={goal.id} onClick={()=>onTabChange(goal.id)}
+                className="w-full border-b border-gray-800 last:border-0 transition-colors text-left"
+                style={{background:'transparent'}}
+                onMouseOver={e=>e.currentTarget.style.background='rgba(255,255,255,0.05)'}
+                onMouseOut={e=>e.currentTarget.style.background='transparent'}>
+                <div className="flex items-center gap-2 px-4 py-3 flex-wrap sm:flex-nowrap">
+                  <span className="text-sm font-medium shrink-0" style={{color:goal.color, minWidth:80}}>
+                    {goal.emoji} {goal.name}
+                  </span>
+                  <span className="text-gray-700 shrink-0 hidden sm:inline">│</span>
+                  <span className="text-gray-400 text-xs sm:text-sm truncate flex-1">
+                    📍 {ms.title}（{ms.period}）
+                  </span>
+                  <span className="text-gray-700 shrink-0 hidden sm:inline">│</span>
+                  <span className="text-xs sm:text-sm font-medium shrink-0" style={{color:remaining===0&&taskTotal>0?'#4ade80':'#f59e0b'}}>
+                    残 {remaining}/{taskTotal}タスク
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ========== GOAL DETAIL ==========
+function MilestoneRow({ goal, ms, index, showDone, dragOver, onDragStart, onDragOver, onDrop, onDragEnd }) {
+  const { toggleTask, deleteTask, deleteMilestone, reorderTasks } = useApp();
+  const [open,setOpen]=useState(true);
+  const [taskModal,setTaskModal]=useState(null);
+  const [msModal,setMsModal]=useState(false);
+  const [dragTaskIdx,setDragTaskIdx]=useState(null);
+  const [dropTaskIdx,setDropTaskIdx]=useState(null);
+  const badge=getMsBadge(ms.period);
+  const visibleTasks=showDone?ms.tasks:ms.tasks.filter(t=>!t.done);
+  const { taskPct }=calcTaskPct(ms.tasks);
+  const doneCount=ms.tasks.filter(t=>t.done).length;
+  const handleTaskDrop=(toIdx)=>{
+    if(dragTaskIdx!==null&&dragTaskIdx!==toIdx) reorderTasks(goal.id,ms.id,dragTaskIdx,toIdx);
+    setDragTaskIdx(null); setDropTaskIdx(null);
+  };
+  return (
+    <div className={`border rounded-xl overflow-hidden transition-all ${dragOver?'border-indigo-500 opacity-70':'border-gray-700'}`}
+      onDragOver={onDragOver} onDrop={e=>{e.preventDefault();onDrop();}}>
+      <div className="flex items-center gap-2 px-3 py-3 hover:opacity-90" style={{background:'rgba(255,255,255,0.05)'}}>
+        <div draggable onDragStart={e=>{e.stopPropagation();onDragStart();}} onDragEnd={onDragEnd}
+          className="cursor-grab text-gray-600" style={{fontSize:18,lineHeight:1,userSelect:'none'}}>⠿</div>
+        <div className="cursor-pointer flex-1 min-w-0 flex items-center gap-2 flex-wrap" onClick={()=>setOpen(o=>!o)}>
+          <span className="text-gray-400 text-sm">{open?'▼':'▶'}</span>
+          <span className="text-white font-medium truncate">{ms.title}</span>
+          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${badge.cls}`}>{badge.label}</span>
+          <span className="text-gray-500 text-xs">{ms.period}</span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0" onClick={e=>e.stopPropagation()}>
+          <span className="text-gray-400 text-xs">{doneCount}/{ms.tasks.length}</span>
+          <span className="text-gray-300 text-sm font-medium">{taskPct}%</span>
+          <button onClick={()=>setMsModal(true)} className="text-gray-500 hover:text-gray-300 px-1 text-sm">✏️</button>
+          <button onClick={()=>deleteMilestone(goal.id,ms.id)} className="text-gray-500 hover:text-red-400 px-1 text-sm">🗑</button>
+        </div>
+      </div>
+      {open&&(
+        <div className="px-3 pb-3 pt-1 space-y-1">
+          {visibleTasks.map(task=>{
+            const realIdx=ms.tasks.findIndex(t=>t.id===task.id);
+            return (
+              <div key={task.id} draggable
+                onDragStart={()=>setDragTaskIdx(realIdx)}
+                onDragOver={e=>{e.preventDefault();setDropTaskIdx(realIdx);}}
+                onDrop={()=>handleTaskDrop(realIdx)}
+                onDragEnd={()=>{setDragTaskIdx(null);setDropTaskIdx(null);}}
+                className="flex items-center gap-2 py-1.5 px-1 rounded-lg group"
+                style={{borderTop:dropTaskIdx===realIdx?'2px solid #6366f1':'2px solid transparent'}}>
+                <span className="text-gray-700 cursor-grab text-sm" style={{userSelect:'none'}}>⠿</span>
+                <button onClick={()=>toggleTask(goal.id,ms.id,task.id)} className="shrink-0 text-base">
+                  {task.done?<span style={{color:goal.color}}>✔</span>:'○'}
+                </button>
+                <span className={`flex-1 text-sm min-w-0 ${task.done?'line-through text-gray-600':'text-gray-200'}`}>
+                  {task.title}
+                  {task.note&&<span className="text-gray-500 ml-2 text-xs">{task.note}</span>}
+                </span>
+                {task.estimatedMinutes!=null&&<span className="text-gray-600 text-xs shrink-0">⏱{task.estimatedMinutes}分</span>}
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                  <button onClick={()=>setTaskModal({mode:'edit',task})} className="text-gray-500 hover:text-gray-300 text-sm">✏️</button>
+                  <button onClick={()=>deleteTask(goal.id,ms.id,task.id)} className="text-gray-500 hover:text-red-400 text-sm">🗑</button>
+                </div>
+              </div>
+            );
+          })}
+          <button onClick={()=>setTaskModal({mode:'add'})} className="text-gray-500 text-sm py-1 px-1 flex items-center gap-1 transition-colors"
+            onMouseOver={e=>e.currentTarget.style.color='#818cf8'} onMouseOut={e=>e.currentTarget.style.color='#6b7280'}>
+            ＋ タスクを追加
+          </button>
+        </div>
+      )}
+      {taskModal&&<TaskModal goalId={goal.id} milestoneId={ms.id} task={taskModal.task} onClose={()=>setTaskModal(null)}/>}
+      {msModal&&<MilestoneModal goalId={goal.id} milestone={ms} onClose={()=>setMsModal(false)}/>}
+    </div>
+  );
+}
+
+function GoalDetail({ goal }) {
+  const { deleteGoal, reorderMilestones } = useApp();
+  const [showDone,setShowDone]=useState(true);
+  const [msModal,setMsModal]=useState(false);
+  const [editModal,setEditModal]=useState(false);
+  const [dragMsIdx,setDragMsIdx]=useState(null);
+  const [dropMsIdx,setDropMsIdx]=useState(null);
+  const allTasks=goal.milestones.flatMap(m=>m.tasks);
+  const { taskPct, timePct }=calcTaskPct(allTasks);
+  const elapsed=calcElapsedPct(goal.startDate,goal.deadline);
+  const diff=taskPct-elapsed;
+  const remaining=diffMonths(goal.deadline,fmtYM(new Date()));
+  const handleMsDrop=(toIdx)=>{
+    if(dragMsIdx!==null&&dragMsIdx!==toIdx) reorderMilestones(goal.id,dragMsIdx,toIdx);
+    setDragMsIdx(null); setDropMsIdx(null);
+  };
+  const tabBtn=(active,label,onClick)=>(
+    <button onClick={onClick} className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+      style={{background:active?'#4f46e5':'transparent',color:active?'white':'#9ca3af'}}>{label}</button>
+  );
+  return (
+    <div className="flex flex-col h-full">
+      <div className="p-4 sm:p-6 border-b border-gray-800" style={{background:'#111827'}}>
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <span className="text-2xl sm:text-3xl">{goal.emoji}</span>
+              <h1 className="text-white text-lg sm:text-xl font-bold">{goal.name}</h1>
+            </div>
+            <p className="text-gray-500 text-xs sm:text-sm">開始: {goal.startDate} | 期限: {goal.deadline} | 残り: {remaining>0?`${remaining}ヶ月`:'期限切れ'}</p>
+          </div>
+          <div className="flex gap-1 shrink-0 ml-2">
+            <button onClick={()=>setEditModal(true)} className="p-1.5 rounded-lg text-gray-500 hover:text-gray-300 text-base">✏️</button>
+            <button onClick={()=>{if(confirm('この目標を削除しますか？'))deleteGoal(goal.id);}} className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 text-base">🗑</button>
+          </div>
+        </div>
+        <div className="space-y-2 mb-4">
+          <PBar pct={taskPct} color={goal.color} label="タスク進捗" />
+          <PBar pct={timePct} color={goal.color+'cc'} label="時間進捗" />
+        </div>
+        <div className="rounded-xl p-3 text-xs sm:text-sm space-y-1" style={{background:'rgba(255,255,255,0.05)'}}>
+          <div className="flex items-center gap-2 text-gray-400">📅 経過ペース: <span className="text-white font-medium">{elapsed}%</span></div>
+          <div className="flex items-center gap-2 text-gray-400">✅ 実績達成率: <span className="text-white font-medium">{taskPct}%</span></div>
+          <div className={`flex items-center gap-2 font-medium ${diff>=0?'text-green-400':'text-amber-400'}`}>
+            {diff>=0?'✅':'⚠️'} {diff>=0?`+${diff}% ペース通りです`:`${diff}% ペースより遅れています`}
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center px-4 sm:px-6 py-3 gap-2 border-b border-gray-800">
+        {tabBtn(!showDone,'未完了のみ',()=>setShowDone(false))}
+        {tabBtn(showDone,'すべて表示',()=>setShowDone(true))}
+      </div>
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-2">
+        {goal.milestones.length===0&&(
+          <div className="text-center text-gray-600 py-12">
+            <p className="text-4xl mb-3">🏁</p>
+            <p>マイルストーンがありません</p>
+            <p className="text-sm mt-1">最初のマイルストーンを追加しましょう</p>
+          </div>
+        )}
+        {goal.milestones.map((ms,idx)=>(
+          <MilestoneRow key={ms.id} goal={goal} ms={ms} index={idx} showDone={showDone}
+            dragOver={dropMsIdx===idx}
+            onDragStart={()=>setDragMsIdx(idx)}
+            onDragOver={e=>{e.preventDefault();setDropMsIdx(idx);}}
+            onDrop={()=>handleMsDrop(idx)}
+            onDragEnd={()=>{setDragMsIdx(null);setDropMsIdx(null);}}/>
+        ))}
+        <button onClick={()=>setMsModal(true)} className="w-full py-3 rounded-xl text-gray-500 text-sm flex items-center justify-center gap-2 transition-colors"
+          style={{border:'1px dashed #374151'}}
+          onMouseOver={e=>{e.currentTarget.style.color='#818cf8';e.currentTarget.style.borderColor='#6366f1';}}
+          onMouseOut={e=>{e.currentTarget.style.color='#6b7280';e.currentTarget.style.borderColor='#374151';}}>
+          ＋ マイルストーンを追加
+        </button>
+      </div>
+      {msModal&&<MilestoneModal goalId={goal.id} onClose={()=>setMsModal(false)}/>}
+      {editModal&&<GoalModal goal={goal} onClose={()=>setEditModal(false)}/>}
+    </div>
+  );
+}
+
+// ========== HABITS ==========
+
+// ⑤ カレンダービュー: 色の濃淡 → 実行数/合計数の数値表示
+function CalendarView() {
+  const { data } = useApp();
+  const [month, setMonth] = useState(new Date());
+  const daily = data.habits.filter(h => h.type === 'daily');
+  const weekly = data.habits.filter(h => h.type === 'weekly');
+  const days = eachDayOfMonth(month);
+  const firstDow = (startOfMonth(month).getDay() + 6) % 7;
+
+  const getCounts = (d) => {
+    const ds = fmtDate(d);
+    const dayName = JP_DAYS[d.getDay()]; // '日','月','火','水','木','金','土'
+    const weeklyForDay = weekly.filter(h => h.days.includes(dayName));
+    const applicable = [...daily, ...weeklyForDay];
+    const total = applicable.length;
+    if (total === 0) return { done: 0, total: 0 };
+    const done = applicable.filter(h => (data.habitLogs[h.id] || []).includes(ds)).length;
+    return { done, total };
+  };
+
+  const tStr = fmtDate(new Date());
+  const wds = ['月','火','水','木','金','土','日'];
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <button onClick={()=>setMonth(m=>addMonths(m,-1))} className="text-gray-400 hover:text-white px-3 py-1">◀</button>
+        <span className="text-white font-medium">{month.getFullYear()}年{month.getMonth()+1}月</span>
+        <button onClick={()=>setMonth(m=>addMonths(m,1))} className="text-gray-400 hover:text-white px-3 py-1">▶</button>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:4,marginBottom:4}}>
+        {wds.map(d=><div key={d} style={{textAlign:'center',color:'#6b7280',fontSize:11,padding:'4px 0'}}>{d}</div>)}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:4}}>
+        {Array.from({length:firstDow}).map((_,i)=><div key={`e${i}`}/>)}
+        {days.map(d=>{
+          const { done, total } = getCounts(d);
+          const isToday = fmtDate(d) === tStr;
+          const allDone = total > 0 && done === total;
+          const hasSome = done > 0;
+          const bgColor = allDone ? 'rgba(99,102,241,0.4)' : hasSome ? 'rgba(99,102,241,0.15)' : '#1f2937';
+          return (
+            <div key={d.toISOString()} style={{
+              aspectRatio:'1',
+              background: bgColor,
+              borderRadius: 6,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              outline: isToday ? '2px solid #818cf8' : 'none',
+              outlineOffset: 1
+            }}>
+              <span style={{color: total > 0 ? '#9ca3af' : '#6b7280', fontSize: 10, lineHeight: 1.4}}>{d.getDate()}</span>
+              {total > 0 && (
+                <span style={{
+                  color: allDone ? '#a5b4fc' : hasSome ? '#6366f1' : '#4b5563',
+                  fontSize: 9,
+                  lineHeight: 1.2,
+                  fontWeight: 700
+                }}>
+                  {done}/{total}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-gray-700 text-xs mt-3 text-right">数値 = 実行数/その日の習慣数</p>
+    </div>
+  );
+}
+
+function HabitRow({ habit, tStr }) {
+  const { data, toggleHabitLog, deleteHabit }=useApp();
+  const [edit,setEdit]=useState(false);
+  const logs=data.habitLogs[habit.id]||[];
+  const checked=logs.includes(tStr);
+  const streak=habit.type==='daily'?calcStreak(logs):0;
+  const goal=habit.goalId?data.goals.find(g=>g.id===habit.goalId):null;
+  return (
+    <div className="flex items-center gap-3 py-3 px-4 rounded-xl group" style={{background:'rgba(255,255,255,0.04)'}}>
+      {goal&&<div style={{width:10,height:10,borderRadius:'50%',background:goal.color,flexShrink:0}}/>}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={`text-sm ${checked&&habit.type==='daily'?'text-gray-400':'text-gray-200'}`}>{habit.title}</span>
+          {goal&&<span className="text-xs text-gray-600 px-1.5 py-0.5 rounded" style={{background:'#374151'}}>{goal.emoji}{goal.name}</span>}
+          {habit.type==='weekly'&&<span className="text-xs text-gray-600">{habit.days.join('・')}</span>}
+        </div>
+        {habit.note&&<p className="text-gray-600 text-xs mt-0.5">{habit.note}</p>}
+      </div>
+      {habit.type==='daily'&&streak>0&&<span className="text-orange-400 text-sm shrink-0">🔥{streak}日連続</span>}
+      <div className="flex items-center gap-1 shrink-0">
+        <button onClick={()=>setEdit(true)} className="text-gray-600 hover:text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-sm">✏️</button>
+        <button onClick={()=>deleteHabit(habit.id)} className="text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity text-sm">🗑</button>
+        {habit.type==='daily'&&(
+          <button onClick={()=>toggleHabitLog(habit.id,tStr)} className="ml-1 text-xl">
+            {checked?<span style={{color:'#818cf8'}}>✅</span>:'⭕'}
+          </button>
+        )}
+      </div>
+      {edit&&<HabitModal habit={habit} onClose={()=>setEdit(false)}/>}
+    </div>
+  );
+}
+
+function Habits() {
+  const { data }=useApp();
+  const [innerTab,setInnerTab]=useState('check');
+  const [addModal,setAddModal]=useState(null);
+  const tStr=fmtDate(new Date());
+  const daily=data.habits.filter(h=>h.type==='daily');
+  const weekly=data.habits.filter(h=>h.type==='weekly');
+  const monthly=data.habits.filter(h=>h.type==='monthly');
+  const tabBtn=(t,label)=>(
+    <button onClick={()=>setInnerTab(t)} className="px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
+      style={{background:innerTab===t?'#4f46e5':'transparent',color:innerTab===t?'white':'#9ca3af'}}>{label}</button>
+  );
+  const Section=({title,habits,type})=>(
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-gray-400 text-sm font-medium">{title}</h2>
+        <button onClick={()=>setAddModal({type})} className="text-gray-500 text-sm flex items-center gap-1 transition-colors"
+          onMouseOver={e=>e.currentTarget.style.color='#818cf8'} onMouseOut={e=>e.currentTarget.style.color='#6b7280'}>＋ 追加</button>
+      </div>
+      {habits.length===0?<p className="text-gray-700 text-sm text-center py-4">習慣はありません</p>:
+        <div className="space-y-2">{habits.map(h=><HabitRow key={h.id} habit={h} tStr={tStr}/>)}</div>}
+    </div>
+  );
+  return (
+    <div className="flex flex-col h-full">
+      <div className="p-4 sm:p-6 border-b border-gray-800">
+        <h1 className="text-white text-xl font-bold">⚡ 習慣管理</h1>
+      </div>
+      <div className="px-4 sm:px-6 py-3 border-b border-gray-800">
+        <div className="flex gap-1 p-1 rounded-lg w-fit" style={{background:'#1f2937'}}>
+          {tabBtn('check','今日のチェック')}{tabBtn('calendar','カレンダー')}
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+        {innerTab==='calendar'?<CalendarView/>:(
+          <div className="space-y-6">
+            <Section title="毎日習慣" habits={daily} type="daily"/>
+            <Section title="毎週習慣" habits={weekly} type="weekly"/>
+            <Section title="毎月習慣" habits={monthly} type="monthly"/>
+          </div>
+        )}
+      </div>
+      {addModal&&<HabitModal defaultType={addModal.type} onClose={()=>setAddModal(null)}/>}
+    </div>
+  );
+}
+
+// ========== APP ROOT ==========
+function AppContent() {
+  const { data }=useApp();
+  const [active,setActive]=useState('dashboard');
+  const [goalModal,setGoalModal]=useState(false);
+  const activeGoal=data.goals.find(g=>g.id===active)||null;
+  return (
+    <div className="flex flex-col text-white" style={{minHeight:'100vh',background:'#0a0e1a'}}>
+      <Navigation active={active} onTab={t=>{setActive(t);}} onAddGoal={()=>setGoalModal(true)}/>
+      <main className="flex-1 overflow-hidden flex flex-col" style={{height:'calc(100vh - 49px)'}}>
+        {active==='dashboard'&&<Dashboard onTabChange={t=>setActive(t)}/>}
+        {active==='habits'&&<Habits/>}
+        {activeGoal&&<GoalDetail key={activeGoal.id} goal={activeGoal}/>}
+      </main>
+      {goalModal&&<GoalModal onClose={()=>setGoalModal(false)}/>}
+    </div>
+  );
+}
+
+function App() {
+  return <AppProvider><AppContent/></AppProvider>;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
