@@ -1,0 +1,1385 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>綾小路式トレーニング管理</title>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans JP',sans-serif;background:#0a0a0f;color:#e8e8f0;max-width:430px;margin:0 auto;min-height:100vh;-webkit-tap-highlight-color:transparent;overflow-x:hidden}
+input,textarea,select{outline:none;font-family:inherit}
+::-webkit-scrollbar{display:none}
+input[type=number]{-moz-appearance:textfield}
+input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+@keyframes pulseCheck{0%{transform:scale(1)}40%{transform:scale(1.35)}100%{transform:scale(1)}}
+.pulse{animation:pulseCheck .25s ease-out}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.fadeUp{animation:fadeUp .2s ease-out}
+@keyframes shimmer{0%{opacity:.7}50%{opacity:1}100%{opacity:.7}}
+.shimmer{animation:shimmer 2s infinite}
+@keyframes bd{0%,100%{transform:translateY(0)}50%{transform:translateY(10px)}}
+@keyframes bu{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes ru{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+@keyframes br{0%,100%{transform:translateY(0)}50%{transform:translateY(4px)}}
+@keyframes jp{0%,100%{transform:translateY(0)}45%,55%{transform:translateY(-15px)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const{useState,useEffect,useCallback,useMemo,useRef}=React;
+
+// ── COLORS ──────────────────────────────────────
+const C={bg:'#0a0a0f',card:'#12121a',accent:'#4f8ef7',success:'#2dd4a0',text:'#e8e8f0',muted:'#6b6b8a',dark:'#2a2a3a',danger:'#ef4444',warn:'#f59e0b'};
+
+// ── SVG HELPERS ──────────────────────────────────
+const A=C.accent,L=C.success,G=C.muted,D=C.dark;
+const Sg=({x1,y1,x2,y2,c,w=5})=><line x1={x1} y1={y1} x2={x2} y2={y2} stroke={c||G} strokeWidth={w} strokeLinecap="round"/>;
+const Jt=({cx,cy,c,r=5})=><circle cx={cx} cy={cy} r={r} fill={c||G} opacity="0.9"/>;
+const Hd2=({cx,cy,r=12,nx,ny})=><>
+  <circle cx={cx} cy={cy} r={r} fill={G}/>
+  {nx!==undefined&&<circle cx={nx} cy={ny!==undefined?ny:cy} r={4} fill={G} opacity="0.75"/>}
+</>;
+const Gd=({y=120})=><line x1="10" y1={y} x2="230" y2={y} stroke={D} strokeWidth="3" strokeLinecap="round"/>;
+const PBr=({y=18,xa=65,xb=175})=><>
+  <rect x={xa} y={y-5} width={xb-xa} height={10} rx={3} fill={D}/>
+  <line x1={xa-14} y1={y} x2={xa} y2={y} stroke={D} strokeWidth="5" strokeLinecap="round"/>
+  <line x1={xb} y1={y} x2={xb+14} y2={y} stroke={D} strokeWidth="5" strokeLinecap="round"/>
+</>;
+// Keep old helpers for backward compat
+const Ln=({x1,y1,x2,y2,c=C.muted,w=4})=><line x1={x1} y1={y1} x2={x2} y2={y2} stroke={c} strokeWidth={w} strokeLinecap="round"/>;
+const Hd=({cx,cy,r=9})=><circle cx={cx} cy={cy} r={r} fill={C.muted}/>;
+const Fl=({y=113,x1=15,x2=225})=><line x1={x1} y1={y} x2={x2} y2={y} stroke={C.dark} strokeWidth="3" strokeLinecap="round"/>;
+const Bar=({y=20,x1=60,x2=180})=><><rect x={x1} y={y-4} width={x2-x1} height={8} rx={3} fill={C.dark}/><line x1={x1-10} y1={y} x2={x1} y2={y} stroke={C.dark} strokeWidth="4"/><line x1={x2} y1={y} x2={x2+10} y2={y} stroke={C.dark} strokeWidth="4"/></>;
+
+// ── EXERCISE SVGs ────────────────────────────────
+const V="0 0 240 150";const W="100%";const H=130;
+const SVGS={
+'pushup':()=><svg viewBox={V} width={W} height={H}><Gd y={130}/>
+  <Hd2 cx={40} cy={95} nx={28} ny={95}/>
+  <Sg x1={52} y1={95} x2={90} y2={95}/><Sg x1={90} y1={95} x2={190} y2={95}/>
+  <Sg x1={90} y1={95} x2={88} y2={130} c={C.accent}/><Jt cx={90} cy={95}/>
+  <Sg x1={158} y1={95} x2={156} y2={130} c={C.accent}/><Jt cx={158} cy={95}/>
+  <Sg x1={190} y1={95} x2={195} y2={78} c={C.success}/><Jt cx={190} cy={95}/>
+  <Sg x1={195} y1={78} x2={200} y2={130} c={C.success}/><Jt cx={195} cy={78}/>
+</svg>,
+
+'wide-pushup':()=><svg viewBox={V} width={W} height={H}><Gd y={130}/>
+  <Hd2 cx={42} cy={90} nx={42} ny={102}/>
+  <Sg x1={54} y1={90} x2={88} y2={90}/><Sg x1={88} y1={90} x2={175} y2={90}/>
+  <Sg x1={88} y1={90} x2={62} y2={115} c={C.accent}/><Jt cx={88} cy={90}/>
+  <Sg x1={62} y1={115} x2={48} y2={130} c={C.accent}/><Jt cx={62} cy={115}/>
+  <Sg x1={158} y1={90} x2={185} y2={115} c={C.accent}/><Jt cx={158} cy={90}/>
+  <Sg x1={185} y1={115} x2={198} y2={130} c={C.accent}/><Jt cx={185} cy={115}/>
+  <Sg x1={175} y1={90} x2={185} y2={75} c={C.success}/><Jt cx={175} cy={90}/>
+  <Sg x1={185} y1={75} x2={192} y2={130} c={C.success}/><Jt cx={185} cy={75}/>
+</svg>,
+
+'pike-pushup':()=><svg viewBox={V} width={W} height={H}><Gd y={130}/>
+  <Hd2 cx={68} cy={115} nx={58} ny={120}/>
+  <Sg x1={68} y1={103} x2={120} y2={55}/><Jt cx={120} cy={55}/>
+  <Sg x1={120} y1={55} x2={172} y2={100}/>
+  <Sg x1={68} y1={115} x2={52} y2={130} c={C.accent}/><Jt cx={68} cy={115}/>
+  <Sg x1={172} y1={100} x2={172} y2={130} c={C.accent}/><Jt cx={172} cy={100}/>
+</svg>,
+
+'chair-dips':()=><svg viewBox={V} width={W} height={H}><Gd y={130}/>
+  <rect x={148} y={72} width={70} height={8} rx={2} fill={C.dark}/>
+  <Sg x1={155} y1={80} x2={155} y2={130} c={C.dark} w={4}/><Sg x1={212} y1={80} x2={212} y2={130} c={C.dark} w={4}/>
+  <Hd2 cx={110} cy={50} nx={122} ny={50}/>
+  <Sg x1={110} y1={62} x2={110} y2={88}/>
+  <Sg x1={110} y1={70} x2={148} y2={78} c={C.accent}/><Jt cx={110} cy={70}/>
+  <Sg x1={110} y1={88} x2={95} y2={112} c={C.success}/><Jt cx={110} cy={88}/>
+  <Sg x1={95} y1={112} x2={88} y2={130} c={C.success}/><Jt cx={95} cy={112}/>
+  <Sg x1={110} y1={88} x2={128} y2={112} c={C.success}/>
+  <Sg x1={128} y1={112} x2={135} y2={130} c={C.success}/><Jt cx={128} cy={112}/>
+</svg>,
+
+'archer-pushup':()=><svg viewBox={V} width={W} height={H}><Gd y={130}/>
+  <Hd2 cx={42} cy={90} nx={42} ny={102}/>
+  <Sg x1={54} y1={90} x2={88} y2={90}/><Sg x1={88} y1={90} x2={175} y2={90}/>
+  <Sg x1={88} y1={90} x2={80} y2={112} c={C.accent}/><Jt cx={88} cy={90}/>
+  <Sg x1={80} y1={112} x2={72} y2={130} c={C.accent}/><Jt cx={80} cy={112}/>
+  <Sg x1={148} y1={90} x2={218} y2={95} c={C.accent}/><Jt cx={148} cy={90}/>
+  <Sg x1={175} y1={90} x2={185} y2={75} c={C.success}/><Jt cx={175} cy={90}/>
+  <Sg x1={185} y1={75} x2={192} y2={130} c={C.success}/><Jt cx={185} cy={75}/>
+</svg>,
+
+'diamond-pushup':()=><svg viewBox={V} width={W} height={H}><Gd y={130}/>
+  <Hd2 cx={42} cy={90} nx={42} ny={102}/>
+  <Sg x1={54} y1={90} x2={88} y2={90}/><Sg x1={88} y1={90} x2={175} y2={90}/>
+  <Sg x1={108} y1={90} x2={118} y2={112} c={C.accent}/><Jt cx={108} cy={90}/>
+  <Sg x1={130} y1={90} x2={118} y2={112} c={C.accent}/><Jt cx={130} cy={90}/>
+  <Sg x1={118} y1={112} x2={118} y2={130} c={C.accent}/><Jt cx={118} cy={112}/>
+  <Sg x1={175} y1={90} x2={185} y2={75} c={C.success}/><Jt cx={175} cy={90}/>
+  <Sg x1={185} y1={75} x2={192} y2={130} c={C.success}/><Jt cx={185} cy={75}/>
+</svg>,
+
+'tempo-pushup':()=><svg viewBox={V} width={W} height={H}><Gd y={130}/>
+<text x={168} y={48} fontSize="11" fill={C.accent} fontFamily="'Noto Sans JP'" fontWeight="700">3秒↓</text>
+  <Hd2 cx={42} cy={90} nx={42} ny={102}/>
+  <Sg x1={54} y1={90} x2={88} y2={90}/><Sg x1={88} y1={90} x2={175} y2={90}/>
+  <Sg x1={88} y1={90} x2={80} y2={112} c={C.accent}/><Jt cx={88} cy={90}/>
+  <Sg x1={80} y1={112} x2={72} y2={130} c={C.accent}/><Jt cx={80} cy={112}/>
+  <Sg x1={155} y1={90} x2={148} y2={112} c={C.accent}/><Jt cx={155} cy={90}/>
+  <Sg x1={148} y1={112} x2={140} y2={130} c={C.accent}/><Jt cx={148} cy={112}/>
+  <Sg x1={175} y1={90} x2={185} y2={75} c={C.success}/><Jt cx={175} cy={90}/>
+  <Sg x1={185} y1={75} x2={192} y2={130} c={C.success}/><Jt cx={185} cy={75}/>
+</svg>,
+
+'clapping-pushup':()=><svg viewBox={V} width={W} height={H}><Gd y={130}/>
+  <Hd2 cx={42} cy={78} nx={42} ny={90}/>
+  <Sg x1={54} y1={78} x2={88} y2={78}/><Sg x1={88} y1={78} x2={175} y2={78}/>
+  <Sg x1={88} y1={78} x2={112} y2={58} c={C.accent}/><Jt cx={88} cy={78}/>
+  <Sg x1={148} y1={78} x2={122} y2={58} c={C.accent}/><Jt cx={148} cy={78}/>
+  <Jt cx={117} cy={56} c={C.accent} r={7}/>
+  <Sg x1={175} y1={78} x2={185} y2={62} c={C.success}/><Jt cx={175} cy={78}/>
+  <Sg x1={185} y1={62} x2={192} y2={118} c={C.success}/><Jt cx={185} cy={62}/>
+</svg>,
+
+'pushup-challenge':()=><svg viewBox={V} width={W} height={H}><Gd y={130}/>
+<text x={155} y={42} fontSize="18" fontWeight="700" fill={C.accent} fontFamily="'Noto Sans JP'" opacity="0.9">×100</text>
+  <Hd2 cx={42} cy={90} nx={42} ny={102}/>
+  <Sg x1={54} y1={90} x2={88} y2={90}/><Sg x1={88} y1={90} x2={175} y2={90}/>
+  <Sg x1={88} y1={90} x2={80} y2={112} c={C.accent}/><Jt cx={88} cy={90}/>
+  <Sg x1={80} y1={112} x2={72} y2={130} c={C.accent}/><Jt cx={80} cy={112}/>
+  <Sg x1={155} y1={90} x2={148} y2={112} c={C.accent}/><Jt cx={155} cy={90}/>
+  <Sg x1={148} y1={112} x2={140} y2={130} c={C.accent}/><Jt cx={148} cy={112}/>
+  <Sg x1={175} y1={90} x2={185} y2={75} c={C.success}/><Jt cx={175} cy={90}/>
+  <Sg x1={185} y1={75} x2={192} y2={130} c={C.success}/><Jt cx={185} cy={75}/>
+</svg>,
+
+'table-pullup':()=><svg viewBox={V} width={W} height={H}><Gd y={130}/>
+  <rect x={25} y={40} width={195} height={8} rx={2} fill={C.dark}/>
+  <Sg x1={35} y1={48} x2={35} y2={130} c={C.dark} w={4}/>
+  <Sg x1={210} y1={48} x2={210} y2={130} c={C.dark} w={4}/>
+  <Hd2 cx={120} cy={62} nx={132} ny={62}/>
+  <Sg x1={120} y1={74} x2={120} y2={95}/>
+  <Sg x1={110} y1={40} x2={98} y2={68} c={C.accent}/><Jt cx={98} cy={68}/>
+  <Sg x1={130} y1={40} x2={142} y2={68} c={C.accent}/><Jt cx={142} cy={68}/>
+  <Sg x1={120} y1={95} x2={105} y2={118} c={C.success}/><Jt cx={120} cy={95}/>
+  <Sg x1={105} y1={118} x2={100} y2={130} c={C.success}/>
+  <Sg x1={120} y1={95} x2={135} y2={118} c={C.success}/>
+  <Sg x1={135} y1={118} x2={140} y2={130} c={C.success}/><Jt cx={135} cy={118}/>
+</svg>,
+
+'superman':()=><svg viewBox={V} width={W} height={H}><Gd y={115}/>
+  <Hd2 cx={42} cy={88} nx={30} ny={88}/>
+  <Sg x1={54} y1={88} x2={88} y2={88}/><Sg x1={88} y1={88} x2={175} y2={88}/>
+  <Sg x1={72} y1={88} x2={45} y2={72} c={C.accent}/><Jt cx={72} cy={88}/>
+  <Sg x1={45} y1={72} x2={28} y2={68} c={C.accent}/>
+  <Sg x1={175} y1={88} x2={200} y2={72} c={C.success}/><Jt cx={175} cy={88}/>
+  <Sg x1={200} y1={72} x2={218} y2={68} c={C.success}/>
+</svg>,
+
+'reverse-plank':()=><svg viewBox={V} width={W} height={H}><Gd y={130}/>
+  <Hd2 cx={42} cy={75} nx={42} ny={63}/>
+  <Sg x1={42} y1={87} x2={88} y2={82}/><Sg x1={88} y1={82} x2={175} y2={88}/>
+  <Sg x1={88} y1={82} x2={78} y2={108} c={C.accent}/><Jt cx={88} cy={82}/>
+  <Sg x1={78} y1={108} x2={72} y2={130} c={C.accent}/><Jt cx={78} cy={108}/>
+  <Sg x1={155} y1={85} x2={148} y2={108} c={C.accent}/><Jt cx={148} cy={108}/>
+  <Sg x1={148} y1={108} x2={142} y2={130} c={C.accent}/>
+  <Sg x1={175} y1={88} x2={182} y2={108} c={C.success}/><Jt cx={175} cy={88}/>
+  <Sg x1={182} y1={108} x2={185} y2={130} c={C.success}/>
+</svg>,
+
+'towel-row':()=><svg viewBox={V} width={W} height={H}><Gd y={130}/>
+  <rect x={10} y={48} width={28} height={55} rx={3} fill={C.dark} opacity="0.7"/>
+  <Sg x1={38} y1={65} x2={85} y2={75} c={C.accent} w={4}/><Sg x1={38} y1={72} x2={85} y2={82} c={C.accent} w={4}/>
+  <Hd2 cx={110} cy={55} nx={98} ny={55}/>
+  <Sg x1={110} y1={67} x2={112} y2={95}/>
+  <Sg x1={110} y1={75} x2={88} y2={80} c={C.accent}/><Jt cx={110} cy={75}/>
+  <Sg x1={88} y1={80} x2={62} y2={75} c={C.accent}/><Jt cx={88} cy={80}/>
+  <Sg x1={112} y1={95} x2={98} y2={118} c={C.success}/><Jt cx={112} cy={95}/>
+  <Sg x1={98} y1={118} x2={92} y2={130} c={C.success}/>
+  <Sg x1={112} y1={95} x2={128} y2={118} c={C.success}/>
+  <Sg x1={128} y1={118} x2={135} y2={130} c={C.success}/><Jt cx={128} cy={118}/>
+</svg>,
+
+'pullup':()=><svg viewBox={V} width={W} height={H}><PBr y={18}/>
+  <Hd2 cx={120} cy={35} nx={132} ny={35}/>
+  <Sg x1={120} y1={47} x2={120} y2={82}/>
+  <Sg x1={108} y1={18} x2={100} y2={52} c={C.accent}/><Jt cx={100} cy={52}/>
+  <Sg x1={100} y1={52} x2={108} y2={66} c={C.accent}/>
+  <Sg x1={132} y1={18} x2={140} y2={52} c={C.accent}/><Jt cx={140} cy={52}/>
+  <Sg x1={140} y1={52} x2={132} y2={66} c={C.accent}/>
+  <Sg x1={120} y1={82} x2={110} y2={108} c={C.success}/><Jt cx={120} cy={82}/>
+  <Sg x1={110} y1={108} x2={105} y2={130} c={C.success}/>
+  <Sg x1={120} y1={82} x2={130} y2={108} c={C.success}/>
+  <Sg x1={130} y1={108} x2={135} y2={130} c={C.success}/><Jt cx={130} cy={108}/>
+</svg>,
+
+'superman-hold':()=><svg viewBox={V} width={W} height={H}><Gd y={115}/>
+<text x={168} y={108} fontSize="11" fill={C.accent} fontFamily="'Noto Sans JP'" fontWeight="700">HOLD</text>
+  <Hd2 cx={42} cy={88} nx={30} ny={88}/>
+  <Sg x1={54} y1={88} x2={88} y2={88}/><Sg x1={88} y1={88} x2={175} y2={88}/>
+  <Sg x1={72} y1={88} x2={45} y2={72} c={C.accent}/><Jt cx={72} cy={88}/>
+  <Sg x1={45} y1={72} x2={28} y2={68} c={C.accent}/>
+  <Sg x1={175} y1={88} x2={200} y2={72} c={C.success}/><Jt cx={175} cy={88}/>
+  <Sg x1={200} y1={72} x2={218} y2={68} c={C.success}/>
+</svg>,
+
+'inverted-row':()=><svg viewBox={V} width={W} height={H}><Gd y={130}/>
+  <PBr y={38} xa={65} xb={175}/>
+  <Hd2 cx={120} cy={55} nx={132} ny={55}/>
+  <Sg x1={120} y1={67} x2={120} y2={88}/>
+  <Sg x1={110} y1={38} x2={100} y2={62} c={C.accent}/><Jt cx={100} cy={62}/>
+  <Sg x1={100} y1={62} x2={108} y2={75} c={C.accent}/>
+  <Sg x1={130} y1={38} x2={140} y2={62} c={C.accent}/><Jt cx={140} cy={62}/>
+  <Sg x1={140} y1={62} x2={132} y2={75} c={C.accent}/>
+  <Sg x1={120} y1={88} x2={98} y2={108} c={C.success}/><Jt cx={120} cy={88}/>
+  <Sg x1={98} y1={108} x2={88} y2={130} c={C.success}/>
+  <Sg x1={120} y1={88} x2={142} y2={108} c={C.success}/>
+  <Sg x1={142} y1={108} x2={152} y2={130} c={C.success}/><Jt cx={142} cy={108}/>
+</svg>,
+
+'one-arm-towel-row':()=><svg viewBox={V} width={W} height={H}><Gd y={130}/>
+  <rect x={10} y={48} width={28} height={55} rx={3} fill={C.dark} opacity="0.7"/>
+  <Sg x1={38} y1={68} x2={82} y2={78} c={C.accent} w={4}/>
+  <Hd2 cx={112} cy={55} nx={100} ny={55}/>
+  <Sg x1={112} y1={67} x2={115} y2={95}/>
+  <Sg x1={112} y1={75} x2={88} y2={82} c={C.accent}/><Jt cx={112} cy={75}/>
+  <Sg x1={88} y1={82} x2={62} y2={76} c={C.accent}/><Jt cx={88} cy={82}/>
+  <Sg x1={112} y1={75} x2={132} y2={72} c={C.muted}/>
+  <Sg x1={115} y1={95} x2={100} y2={118} c={C.success}/><Jt cx={115} cy={95}/>
+  <Sg x1={100} y1={118} x2={94} y2={130} c={C.success}/>
+  <Sg x1={115} y1={95} x2={130} y2={118} c={C.success}/>
+  <Sg x1={130} y1={118} x2={137} y2={130} c={C.success}/><Jt cx={130} cy={118}/>
+</svg>,
+
+'heavy-towel-row':()=><svg viewBox={V} width={W} height={H}><Gd y={130}/>
+  <rect x={10} y={45} width={28} height={60} rx={3} fill={C.dark} opacity="0.8"/>
+  <Sg x1={38} y1={62} x2={82} y2={72} c={C.accent} w={4}/><Sg x1={38} y1={70} x2={82} y2={80} c={C.accent} w={4}/>
+  <Hd2 cx={112} cy={52} nx={100} ny={52}/>
+  <Sg x1={112} y1={64} x2={115} y2={95}/>
+  <Sg x1={112} y1={72} x2={88} y2={78} c={C.accent}/><Jt cx={112} cy={72}/>
+  <Sg x1={88} y1={78} x2={60} y2={72} c={C.accent}/><Jt cx={88} cy={78}/>
+  <Sg x1={112} y1={72} x2={138} y2={78} c={C.accent}/><Jt cx={138} cy={78}/>
+  <Sg x1={138} y1={78} x2={160} y2={72} c={C.accent}/>
+  <Sg x1={115} y1={95} x2={100} y2={118} c={C.success}/><Jt cx={115} cy={95}/>
+  <Sg x1={100} y1={118} x2={94} y2={130} c={C.success}/>
+  <Sg x1={115} y1={95} x2={130} y2={118} c={C.success}/>
+  <Sg x1={130} y1={118} x2={137} y2={130} c={C.success}/><Jt cx={130} cy={118}/>
+</svg>,
+
+'superman-slow':()=><svg viewBox={V} width={W} height={H}><Gd y={115}/>
+<text x={168} y={108} fontSize="11" fill={C.warn} fontFamily="'Noto Sans JP'" fontWeight="700">SLOW</text>
+  <Hd2 cx={42} cy={88} nx={30} ny={88}/>
+  <Sg x1={54} y1={88} x2={88} y2={88}/><Sg x1={88} y1={88} x2={175} y2={88}/>
+  <Sg x1={72} y1={88} x2={45} y2={72} c={C.accent}/><Jt cx={72} cy={88}/>
+  <Sg x1={45} y1={72} x2={28} y2={68} c={C.accent}/>
+  <Sg x1={175} y1={88} x2={200} y2={72} c={C.success}/><Jt cx={175} cy={88}/>
+  <Sg x1={200} y1={72} x2={218} y2={68} c={C.success}/>
+</svg>,
+
+'front-lever':()=><svg viewBox={V} width={W} height={H}><PBr y={18}/>
+  <Hd2 cx={68} cy={48} nx={68} ny={60}/>
+  <Sg x1={68} y1={48} x2={80} y2={42}/>
+  <Sg x1={80} y1={42} x2={192} y2={42}/>
+  <Jt cx={80} cy={42}/><Jt cx={192} cy={42}/>
+  <Sg x1={100} y1={18} x2={92} y2={42} c={C.accent}/><Jt cx={92} cy={42}/>
+  <Sg x1={128} y1={18} x2={120} y2={42} c={C.accent}/><Jt cx={120} cy={42}/>
+  <Sg x1={192} y1={42} x2={222} y2={42} c={C.success}/>
+  <Sg x1={192} y1={42} x2={220} y2={47} c={C.success}/>
+</svg>,
+
+'squat':()=><svg viewBox={V} width={W} height={H}><Gd y={130}/>
+  <Hd2 cx={120} cy={28} nx={132} ny={28}/>
+  <Sg x1={120} y1={40} x2={120} y2={82}/>
+  <Sg x1={120} y1={55} x2={95} y2={62} c={C.accent}/><Jt cx={120} cy={55}/>
+  <Sg x1={95} y1={62} x2={82} y2={75} c={C.accent}/>
+  <Sg x1={120} y1={55} x2={145} y2={62} c={C.accent}/><Jt cx={145} cy={62}/>
+  <Sg x1={145} y1={62} x2={158} y2={75} c={C.accent}/>
+  <Sg x1={120} y1={82} x2={100} y2={105} c={C.success}/><Jt cx={100} cy={105}/>
+  <Sg x1={100} y1={105} x2={88} y2={130} c={C.success}/>
+  <Sg x1={120} y1={82} x2={140} y2={105} c={C.success}/><Jt cx={140} cy={105}/>
+  <Sg x1={140} y1={105} x2={152} y2={130} c={C.success}/>
+</svg>,
+
+'lunge':()=><svg viewBox={V} width={W} height={H}><Gd y={130}/>
+  <Hd2 cx={120} cy={28} nx={132} ny={28}/>
+  <Sg x1={120} y1={40} x2={120} y2={82}/>
+  <Sg x1={120} y1={55} x2={105} y2={68} c={C.accent}/><Jt cx={120} cy={55}/>
+  <Sg x1={105} y1={68} x2={95} y2={80} c={C.accent}/>
+  <Sg x1={120} y1={55} x2={135} y2={68} c={C.accent}/><Jt cx={135} cy={68}/>
+  <Sg x1={135} y1={68} x2={142} y2={80} c={C.accent}/>
+  <Sg x1={120} y1={82} x2={148} y2={100} c={C.success}/><Jt cx={148} cy={100}/>
+  <Sg x1={148} y1={100} x2={160} y2={130} c={C.success}/>
+  <Sg x1={120} y1={82} x2={90} y2={100} c={C.success}/><Jt cx={90} cy={100}/>
+  <Sg x1={90} y1={100} x2={72} y2={130} c={C.success}/>
+</svg>,
+
+'glute-bridge':()=><svg viewBox={V} width={W} height={H}><Gd y={130}/>
+  <Hd2 cx={42} cy={100} nx={42} ny={88}/>
+  <Sg x1={54} y1={98} x2={95} y2={88}/>
+  <Sg x1={95} y1={88} x2={148} y2={62}/><Jt cx={148} cy={62}/>
+  <Sg x1={148} y1={62} x2={175} y2={88}/>
+  <Sg x1={175} y1={88} x2={182} y2={108} c={C.success}/><Jt cx={175} cy={88}/>
+  <Sg x1={182} y1={108} x2={185} y2={130} c={C.success}/>
+  <Sg x1={75} y1={95} x2={68} y2={118} c={C.accent}/><Jt cx={75} cy={95}/>
+  <Sg x1={68} y1={118} x2={62} y2={130} c={C.accent}/>
+</svg>,
+
+'plank':()=><svg viewBox={V} width={W} height={H}><Gd y={130}/>
+  <Hd2 cx={42} cy={88} nx={42} ny={100}/>
+  <Sg x1={54} y1={88} x2={175} y2={88}/>
+  <Sg x1={88} y1={88} x2={72} y2={108} c={C.accent}/><Jt cx={88} cy={88}/>
+  <Sg x1={72} y1={108} x2={90} y2={118} c={C.accent}/><Jt cx={72} cy={108}/>
+  <Sg x1={148} y1={88} x2={132} y2={108} c={C.accent}/><Jt cx={148} cy={88}/>
+  <Sg x1={132} y1={108} x2={150} y2={118} c={C.accent}/>
+  <Sg x1={175} y1={88} x2={178} y2={118} c={C.success}/><Jt cx={175} cy={88}/>
+  <Sg x1={182} y1={88} x2={185} y2={118} c={C.success}/>
+</svg>,
+
+'crunch':()=><svg viewBox={V} width={W} height={H}><Gd y={130}/>
+  <Hd2 cx={52} cy={68} nx={64} ny={68}/>
+  <Sg x1={64} y1={76} x2={130} y2={100}/>
+  <Jt cx={130} cy={100}/>
+  <Sg x1={80} y1={80} x2={115} y2={92} c={C.accent}/><Jt cx={80} cy={80}/>
+  <Sg x1={90} y1={83} x2={125} y2={95} c={C.accent}/>
+  <Sg x1={130} y1={100} x2={162} y2={78} c={C.success}/><Jt cx={162} cy={78}/>
+  <Sg x1={162} y1={78} x2={178} y2={130} c={C.success}/>
+  <Sg x1={130} y1={100} x2={168} y2={82} c={C.success}/><Jt cx={168} cy={82}/>
+  <Sg x1={168} y1={82} x2={190} y2={130} c={C.success}/>
+</svg>,
+
+'bulgarian-squat':()=><svg viewBox={V} width={W} height={H}><Gd y={130}/>
+  <rect x={155} y={100} width={60} height={30} rx={3} fill={C.dark}/>
+  <Hd2 cx={115} cy={28} nx={127} ny={28}/>
+  <Sg x1={115} y1={40} x2={115} y2={82}/>
+  <Sg x1={115} y1={55} x2={100} y2={68} c={C.accent}/><Jt cx={115} cy={55}/>
+  <Sg x1={100} y1={68} x2={92} y2={80} c={C.accent}/>
+  <Sg x1={115} y1={55} x2={130} y2={68} c={C.accent}/><Jt cx={130} cy={68}/>
+  <Sg x1={130} y1={68} x2={138} y2={80} c={C.accent}/>
+  <Sg x1={115} y1={82} x2={95} y2={105} c={C.success}/><Jt cx={95} cy={105}/>
+  <Sg x1={95} y1={105} x2={85} y2={130} c={C.success}/>
+  <Sg x1={115} y1={82} x2={155} y2={100} c={C.success}/><Jt cx={155} cy={100}/>
+</svg>,
+
+'jump-squat':()=><svg viewBox={V} width={W} height={H}><Gd y={130}/>
+<line x1="95" y1="122" x2="145" y2="122" stroke={C.muted} strokeWidth="2" strokeDasharray="4,4"/>
+  <Hd2 cx={120} cy={25} nx={132} ny={25}/>
+  <Sg x1={120} y1={37} x2={120} y2={78}/>
+  <Sg x1={120} y1={52} x2={95} y2={58} c={C.accent}/><Jt cx={120} cy={52}/>
+  <Sg x1={95} y1={58} x2={82} y2={68} c={C.accent}/>
+  <Sg x1={120} y1={52} x2={145} y2={58} c={C.accent}/><Jt cx={145} cy={58}/>
+  <Sg x1={145} y1={58} x2={158} y2={68} c={C.accent}/>
+  <Sg x1={120} y1={78} x2={100} y2={100} c={C.success}/><Jt cx={100} cy={100}/>
+  <Sg x1={100} y1={100} x2={90} y2={118} c={C.success}/>
+  <Sg x1={120} y1={78} x2={140} y2={100} c={C.success}/><Jt cx={140} cy={100}/>
+  <Sg x1={140} y1={100} x2={150} y2={118} c={C.success}/>
+</svg>,
+
+'single-leg-rdl':()=><svg viewBox={V} width={W} height={H}><Gd y={130}/>
+  <Hd2 cx={78} cy={65} nx={66} ny={65}/>
+  <Sg x1={90} y1={68} x2={128} y2={78}/>
+  <Sg x1={128} y1={78} x2={142} y2={98}/>
+  <Sg x1={108} y1={72} x2={92} y2={82} c={C.accent}/><Jt cx={108} cy={72}/>
+  <Sg x1={92} y1={82} x2={78} y2={88} c={C.accent}/>
+  <Sg x1={142} y1={98} x2={142} y2={130} c={C.success}/><Jt cx={142} cy={98}/>
+  <Sg x1={128} y1={78} x2={182} y2={65} c={C.success} w={4}/>
+</svg>,
+
+'side-plank':()=><svg viewBox={V} width={W} height={H}><Gd y={130}/>
+  <Hd2 cx={52} cy={72} nx={64} ny={72}/>
+  <Sg x1={64} y1={78} x2={188} y2={100}/>
+  <Sg x1={78} y1={80} x2={72} y2={104} c={C.accent}/><Jt cx={78} cy={80}/>
+  <Sg x1={72} y1={104} x2={88} y2={118} c={C.accent}/><Jt cx={72} cy={104}/>
+  <Sg x1={88} y1={118} x2={98} y2={130} c={C.accent}/>
+  <Sg x1={122} y1={88} x2={118} y2={68} c={C.muted}/><Jt cx={122} cy={88}/>
+  <Sg x1={188} y1={100} x2={198} y2={118} c={C.success}/><Jt cx={188} cy={100}/>
+  <Sg x1={198} y1={118} x2={205} y2={130} c={C.success}/>
+  <Sg x1={188} y1={100} x2={202} y2={120} c={C.success}/>
+  <Sg x1={202} y1={120} x2={210} y2={130} c={C.success}/>
+</svg>,
+
+'leg-raise':()=><svg viewBox={V} width={W} height={H}><Gd y={130}/>
+  <Hd2 cx={38} cy={108} nx={38} ny={96}/>
+  <Sg x1={50} y1={108} x2={148} y2={108}/>
+  <Sg x1={80} y1={108} x2={75} y2={125} c={C.accent}/><Jt cx={80} cy={108}/>
+  <Sg x1={110} y1={108} x2={105} y2={125} c={C.accent}/><Jt cx={110} cy={108}/>
+  <Jt cx={148} cy={108}/>
+  <Sg x1={148} y1={108} x2={152} y2={52} c={C.success} w={6}/>
+  <Sg x1={162} y1={108} x2={166} y2={52} c={C.success} w={6}/>
+  <Jt cx={162} cy={108}/>
+</svg>,
+
+'pistol-squat':()=><svg viewBox={V} width={W} height={H}><Gd y={130}/>
+  <Hd2 cx={120} cy={28} nx={132} ny={28}/>
+  <Sg x1={120} y1={40} x2={120} y2={82}/>
+  <Sg x1={120} y1={55} x2={105} y2={68} c={C.accent}/><Jt cx={120} cy={55}/>
+  <Sg x1={105} y1={68} x2={95} y2={78} c={C.accent}/>
+  <Sg x1={120} y1={55} x2={135} y2={68} c={C.accent}/><Jt cx={135} cy={68}/>
+  <Sg x1={135} y1={68} x2={142} y2={78} c={C.accent}/>
+  <Sg x1={120} y1={82} x2={108} y2={108} c={C.success}/><Jt cx={108} cy={108}/>
+  <Sg x1={108} y1={108} x2={100} y2={130} c={C.success}/>
+  <Sg x1={120} y1={82} x2={165} y2={78} c={C.success} w={4}/>
+  <Sg x1={165} y1={78} x2={195} y2={75} c={C.success} w={3}/>
+</svg>,
+
+'jump-lunge':()=><svg viewBox={V} width={W} height={H}><Gd y={130}/>
+<line x1="75" y1="122" x2="165" y2="122" stroke={C.muted} strokeWidth="2" strokeDasharray="4,4"/>
+  <Hd2 cx={120} cy={25} nx={132} ny={25}/>
+  <Sg x1={120} y1={37} x2={120} y2={78}/>
+  <Sg x1={120} y1={52} x2={105} y2={62} c={C.accent}/><Jt cx={120} cy={52}/>
+  <Sg x1={105} y1={62} x2={95} y2={72} c={C.accent}/>
+  <Sg x1={120} y1={52} x2={135} y2={62} c={C.accent}/><Jt cx={135} cy={62}/>
+  <Sg x1={135} y1={62} x2={145} y2={72} c={C.accent}/>
+  <Sg x1={120} y1={78} x2={148} y2={95} c={C.success}/><Jt cx={148} cy={95}/>
+  <Sg x1={148} y1={95} x2={158} y2={118} c={C.success}/>
+  <Sg x1={120} y1={78} x2={92} y2={95} c={C.success}/><Jt cx={92} cy={95}/>
+  <Sg x1={92} y1={95} x2={78} y2={118} c={C.success}/>
+</svg>,
+
+'nordic-curl':()=><svg viewBox={V} width={W} height={H}><Gd y={130}/>
+  <rect x={148} y={105} width={55} height={25} rx={3} fill={C.dark}/>
+  <Hd2 cx={88} cy={52} nx={76} ny={52}/>
+  <Sg x1={100} y1={58} x2={120} y2={88}/>
+  <Sg x1={105} y1={65} x2={82} y2={75} c={C.accent}/><Jt cx={105} cy={65}/>
+  <Sg x1={82} y1={75} x2={65} y2={80} c={C.accent}/>
+  <Sg x1={112} y1={75} x2={132} y2={82} c={C.accent}/>
+  <Sg x1={120} y1={88} x2={108} y2={108} c={C.success}/><Jt cx={120} cy={88}/>
+  <Sg x1={108} y1={108} x2={105} y2={130} c={C.success}/>
+  <Sg x1={120} y1={88} x2={148} y2={105} c={C.success}/><Jt cx={148} cy={105}/>
+</svg>,
+
+'dragon-flag':()=><svg viewBox={V} width={W} height={H}><Gd y={130}/>
+  <rect x={72} y={85} width={150} height={20} rx={3} fill={C.dark}/>
+  <Sg x1={78} y1={85} x2={78} y2={105} c={C.dark} w={3}/>
+  <Hd2 cx={80} cy={78} nx={68} ny={78}/>
+  <Sg x1={80} y1={90} x2={148} y2={60}/><Jt cx={148} cy={60}/>
+  <Sg x1={148} y1={60} x2={200} y2={42}/>
+  <Sg x1={108} y1={78} x2={102} y2={88} c={C.accent}/><Jt cx={108} cy={78}/>
+  <Sg x1={128} y1={70} x2={122} y2={80} c={C.accent}/>
+  <Sg x1={188} y1={48} x2={204} y2={42} c={C.success}/>
+  <Sg x1={193} y1={46} x2={210} y2={44} c={C.success}/>
+</svg>,
+
+'hanging-leg-raise':()=><svg viewBox={V} width={W} height={H}><PBr y={18}/>
+  <Hd2 cx={120} cy={35} nx={132} ny={35}/>
+  <Sg x1={120} y1={47} x2={120} y2={82}/>
+  <Sg x1={108} y1={18} x2={102} y2={50} c={C.accent}/><Jt cx={102} cy={50}/>
+  <Sg x1={102} y1={50} x2={110} y2={65} c={C.accent}/>
+  <Sg x1={132} y1={18} x2={138} y2={50} c={C.accent}/><Jt cx={138} cy={50}/>
+  <Sg x1={138} y1={50} x2={130} y2={65} c={C.accent}/>
+  <Sg x1={120} y1={82} x2={105} y2={58} c={C.success}/><Jt cx={105} cy={58}/>
+  <Sg x1={105} y1={58} x2={100} y2={38} c={C.success}/>
+  <Sg x1={120} y1={82} x2={135} y2={58} c={C.success}/><Jt cx={135} cy={58}/>
+  <Sg x1={135} y1={58} x2={140} y2={38} c={C.success}/>
+</svg>,
+};
+
+// ── EXERCISES DATA ───────────────────────────────
+const EXERCISES=[
+{id:'pushup',name:'プッシュアップ',category:'push',muscles:['大胸筋','三角筋前部','上腕三頭筋'],difficulty:'beginner',description:'基本的な自重プッシュ種目。両手を肩幅に開き、体を一直線に保って行う。全身の筋肉を連動させる複合動作だ。',points:['体を頭からかかとまで一直線に','胸が床スレスレまで下げる','肘は体から45度の角度','呼吸を止めない']},
+{id:'wide-pushup',name:'ワイドプッシュアップ',category:'push',muscles:['大胸筋外側','三角筋前部'],difficulty:'intermediate',description:'手幅を広く取るプッシュアップ。大胸筋の外側を重点的に刺激する。',points:['手幅は肩幅の1.5倍を目安に','胸の外側のストレッチを意識','肘を横に張り出して曲げる','体幹をしっかり固定する']},
+{id:'pike-pushup',name:'パイクプッシュアップ',category:'push',muscles:['三角筋','上腕三頭筋','僧帽筋'],difficulty:'intermediate',description:'腰を高く上げて逆V字型の姿勢から行うプッシュアップ。肩への負荷が大きく、倒立プッシュアップへの登竜門。',points:['腰を高く保ちV字を維持','頭を床に近づけるように下ろす','肘は外側に向ける','足はできるだけ手に近づけて']},
+{id:'chair-dips',name:'ディップス（椅子）',category:'push',muscles:['上腕三頭筋','大胸筋下部','三角筋前部'],difficulty:'intermediate',description:'椅子の縁に両手をつき、体を下ろして上腕三頭筋を鍛える種目。肘を体に沿って曲げることが重要。',points:['背中を椅子に近づけて行う','肘が90度になるまで下ろす','肩を下げ首に力を入れない','足は床につけるか前に伸ばす']},
+{id:'archer-pushup',name:'アーチャープッシュアップ',category:'push',muscles:['大胸筋','三角筋','上腕三頭筋'],difficulty:'advanced',description:'片腕プッシュアップへの移行種目。片腕を大きく横に伸ばしながら体を支える。非対称な動きが体幹の安定性も鍛える。',points:['伸ばした腕は床に平らにつく','支持側の腕に体重を集中','左右均等に鍛えること','体が傾かないよう意識する']},
+{id:'diamond-pushup',name:'ダイヤモンドプッシュアップ',category:'push',muscles:['上腕三頭筋','大胸筋内側','三角筋前部'],difficulty:'intermediate',description:'両手をダイヤモンド型に組んで行うプッシュアップ。上腕三頭筋への刺激が強い。',points:['人差し指と親指でダイヤ形を作る','肘を体に沿って曲げる','腰が落ちないよう体幹を締める','三頭筋の収縮を意識する']},
+{id:'tempo-pushup',name:'テンポプッシュアップ（3秒下げ）',category:'push',muscles:['大胸筋','三角筋前部','上腕三頭筋'],difficulty:'intermediate',description:'3秒かけてゆっくり体を下ろすプッシュアップ。エキセントリック局面を重視することで高い筋力向上効果が得られる。',points:['3秒かけてコントロールしながら下ろす','底部でも力を抜かない','押し上げは通常速度でよい','呼吸は下ろしながら吸う']},
+{id:'clapping-pushup',name:'クラッピングプッシュアップ',category:'push',muscles:['大胸筋','三角筋','上腕三頭筋'],difficulty:'advanced',description:'爆発的な力で体を床から離し、空中で拍手してから着地する。瞬発力と爆発的筋力を鍛える高強度種目だ。',points:['十分な爆発力で素早く押し上げる','着地時は肘を柔らかく曲げて吸収','体幹をしっかり固定して行う','手首のウォームアップを忘れずに']},
+{id:'pushup-challenge',name:'プッシュアップ100回チャレンジ',category:'push',muscles:['大胸筋','三角筋','上腕三頭筋','体幹'],difficulty:'advanced',description:'1日で100回のプッシュアップを達成するチャレンジ。分割して行ってもよい。完遂した時の達成感は格別だ。',points:['インターバルを使って分割可能','フォームを崩さないことを優先','疲労に合わせて柔軟に調整','達成感が次への動力になる']},
+{id:'table-pullup',name:'テーブルプルアップ',category:'pull',muscles:['広背筋','上腕二頭筋','菱形筋'],difficulty:'beginner',description:'丈夫なテーブルの下に入り、縁を持って体を引き上げる種目。懸垂ができない初心者の代替として最適。',points:['テーブルが安定しているか確認','胸をテーブル下面に近づける','肩甲骨を寄せることを意識','足は床につけたまま行う']},
+{id:'superman',name:'スーパーマン',category:'pull',muscles:['脊柱起立筋','臀筋','僧帽筋下部'],difficulty:'beginner',description:'うつぶせに寝て、両手両足を同時に床から持ち上げる種目。背面の全筋群を鍛えるシンプルで効果的な体幹種目。',points:['腕と脚を同時に持ち上げる','頂点で1〜2秒キープする','首は自然なポジションを保つ','床への反動を使わない']},
+{id:'reverse-plank',name:'リバースプランク',category:'pull',muscles:['大臀筋','ハムストリング','体幹後部'],difficulty:'beginner',description:'仰向けから両手と踵で体を支えて一直線に保つ種目。体の後面全体を鍛えるプランクの逆バージョン。',points:['頭からかかとまで一直線に','お尻が下がらないようにする','肩甲骨を寄せて肩を安定させる','腹部にも力を入れて体幹を締める']},
+{id:'towel-row',name:'タオルロウ',category:'pull',muscles:['広背筋','菱形筋','上腕二頭筋'],difficulty:'beginner',description:'ドアノブや柱にタオルを巻き付けて引く種目。背中の引く力を自宅で手軽に鍛えられる。',points:['タオルと固定点の強度を確認する','背中から引くことを意識する','肘を後方に引いて肩甲骨を寄せる','体が揺れないよう安定させる']},
+{id:'pullup',name:'懸垂',category:'pull',muscles:['広背筋','上腕二頭筋','菱形筋','体幹'],difficulty:'intermediate',description:'最強の背中トレーニング。バーを両手でつかみ、顎をバーの上まで引き上げる。自重トレーニングの王様。',points:['肩甲骨を下げてから引き始める','チーティングを使わない','降ろす時もコントロールする','脇を締めながら引き上げる']},
+{id:'superman-hold',name:'スーパーマンホールド（3秒キープ）',category:'pull',muscles:['脊柱起立筋','臀筋','僧帽筋'],difficulty:'intermediate',description:'スーパーマンのポジションで3秒間静止するバリエーション。等尺性収縮を加えることで背面筋群への刺激が増加する。',points:['頂点で3秒間しっかりキープ','全身に力を入れて静止する','呼吸は止めずに続ける','腰への過度な反りに注意']},
+{id:'inverted-row',name:'インバーテッドロウ',category:'pull',muscles:['広背筋','菱形筋','上腕二頭筋','体幹'],difficulty:'intermediate',description:'体を斜めに保ちながら低いバーを引き付ける種目。懸垂に近い動きを斜めの角度で行い負荷を調整できる。',points:['体を一直線に保つ','胸をバーに近づける','肩甲骨を寄せて背中から引く','足の位置で難易度を調節']},
+{id:'one-arm-towel-row',name:'タオルロウ（片腕）',category:'pull',muscles:['広背筋','菱形筋','上腕二頭筋'],difficulty:'intermediate',description:'片手でタオルを持ち、片側ずつ背中の筋肉を鍛えるロウ。左右の筋肉バランスを整え、より高強度な刺激を与えられる。',points:['体幹をしっかり固定する','引き手側の肩甲骨を寄せることを意識','反動を使わないよう注意','左右均等に行う']},
+{id:'heavy-towel-row',name:'タオルロウ（高負荷）',category:'pull',muscles:['広背筋','菱形筋','上腕二頭筋'],difficulty:'intermediate',description:'体の傾斜を急にして行う高負荷バージョン。より垂直方向に近い引きを実現し、懸垂に近い刺激が得られる。',points:['足の位置を遠くして体の傾斜を急にする','最大可動域で動かす','背筋のストレッチを感じる','コントロールして引く']},
+{id:'superman-slow',name:'スーパーマンスロー',category:'pull',muscles:['脊柱起立筋','臀筋','僧帽筋'],difficulty:'intermediate',description:'ゆっくりとコントロールしながら行うスーパーマン。テンポを落とすことで背面筋群への時間的張力が増加する。',points:['3〜4秒かけてゆっくり持ち上げる','最大挙上位で1〜2秒キープ','ゆっくり下ろして反動をつけない','全可動域を丁寧に使う']},
+{id:'front-lever',name:'フロントレバーホールド練習',category:'pull',muscles:['広背筋','体幹','前鋸筋','上腕二頭筋'],difficulty:'advanced',description:'バーにつかまり体を水平に保つ究極の自重技。体全体の連動性と強さが要求される最高難度の種目。',points:['膝を曲げた短縮版から始める','ストレートアームで保持することが重要','肩を下げて広背筋を使う','徐々に体を水平に近づける']},
+{id:'squat',name:'スクワット',category:'legs',muscles:['大腿四頭筋','臀筋','ハムストリング'],difficulty:'beginner',description:'下半身の王道種目。足を肩幅に開き、膝が爪先を超えないように意識しながら腰を落とす。',points:['膝は爪先と同じ方向に向ける','背中を真っ直ぐに保つ','太ももが床と並行になるまで下げる','踵に重心をかける']},
+{id:'lunge',name:'ランジ',category:'legs',muscles:['大腿四頭筋','臀筋','ハムストリング'],difficulty:'beginner',description:'片脚ずつ前に踏み出して下半身を鍛える種目。バランス能力も向上させ、左右の筋力バランスを整える。',points:['前の膝は爪先の真上に','後ろの膝は床スレスレまで下げる','上体は垂直を保つ','重心は前足の踵に乗せる']},
+{id:'glute-bridge',name:'グルートブリッジ',category:'legs',muscles:['大臀筋','ハムストリング','体幹'],difficulty:'beginner',description:'仰向けで膝を曲げ、腰を持ち上げて臀部を鍛える種目。お尻の筋肉を意識的に収縮させることが重要。',points:['臀部をしっかり収縮させる','頂点で1〜2秒キープする','肩から膝まで一直線に','腰を反りすぎない']},
+{id:'plank',name:'プランク',category:'core',muscles:['腹直筋','腹横筋','脊柱起立筋','体幹全体'],difficulty:'beginner',description:'前腕で体を支えて一直線に保つ体幹トレーニングの基本。全身の筋肉を連動させることで高い体幹強化効果が得られる。',points:['頭からかかとまで一直線に','お尻を上げすぎず下げすぎない','呼吸を続けながら維持する','腹部に力を入れ続ける']},
+{id:'crunch',name:'クランチ',category:'core',muscles:['腹直筋上部','腹斜筋'],difficulty:'beginner',description:'仰向けで上体を丸め、腹直筋を収縮させる基本の腹筋運動。腰を床につけたまま肩甲骨が浮くまで上体を丸める。',points:['腰は床から離さない','首を引っ張らず腹部で引き上げる','頂点で腹部をしっかり収縮','ゆっくりと戻してコントロールする']},
+{id:'bulgarian-squat',name:'ブルガリアンスクワット',category:'legs',muscles:['大腿四頭筋','臀筋','ハムストリング','バランス筋'],difficulty:'intermediate',description:'後ろ足を台に乗せて行う片脚スクワット。通常のスクワットより高強度で、左右の筋肉バランスを整えるのに最適。',points:['前足の膝が爪先を大きく超えない','後ろ足は甲から台に乗せる','上体は垂直に保つ','踵で押すように立ち上がる']},
+{id:'jump-squat',name:'ジャンプスクワット',category:'legs',muscles:['大腿四頭筋','臀筋','ふくらはぎ'],difficulty:'intermediate',description:'スクワットの底部から爆発的に跳び上がるプライオメトリクス種目。瞬発力と筋パワーを向上させる。',points:['スクワットの底部から爆発的に跳ぶ','着地はソフトに膝を曲げて吸収','腕を使ってジャンプを補助する','膝への負担を抑えるため着地に注意']},
+{id:'single-leg-rdl',name:'シングルレッグRDL',category:'legs',muscles:['ハムストリング','臀筋','脊柱起立筋'],difficulty:'intermediate',description:'片足で立ち、上体を前傾させながら後ろ足を上げる種目。ハムストリングと臀部をストレッチしながら鍛え、バランス能力も向上。',points:['軸足の膝をわずかに曲げる','背中を真っ直ぐに保って前傾','後ろ足と体が一直線になるまで上げる','視線は斜め前方に向ける']},
+{id:'side-plank',name:'サイドプランク',category:'core',muscles:['腹斜筋','腹横筋','中臀筋'],difficulty:'intermediate',description:'横向きで体を一直線に保つ体幹種目。腹斜筋と体幹の側面を特に鍛える。腰痛予防やウェストのシェイプアップに効果的。',points:['体を横一直線に保つ','腰が落ちないよう意識する','肩の真下に前腕をつく','左右均等に行う']},
+{id:'leg-raise',name:'レッグレイズ',category:'core',muscles:['腹直筋下部','腸腰筋','股関節屈筋'],difficulty:'intermediate',description:'仰向けで両足を上げ下げする腹筋運動。特に腹直筋の下部を強く刺激し、ぽっこりお腹の解消に効果的。',points:['腰は常に床につけておく','足を完全に下ろす時は腰が反るので注意','足はゆっくりコントロールして下ろす','呼吸を意識して行う']},
+{id:'pistol-squat',name:'ピストルスクワット練習',category:'legs',muscles:['大腿四頭筋','臀筋','体幹','バランス筋'],difficulty:'advanced',description:'片足だけで完全にしゃがんで立ち上がる最高難度の自重スクワット。体幹の安定性、バランス、脚の筋力のすべてが要求される。',points:['まず壁に触れながら練習する','一方の足を前に伸ばしたまましゃがむ','膝が内側に入らないよう注意','かかとに重心を置いて立ち上がる']},
+{id:'jump-lunge',name:'ジャンプランジ',category:'legs',muscles:['大腿四頭筋','臀筋','ふくらはぎ'],difficulty:'intermediate',description:'ランジの体勢から爆発的に跳び上がり、空中で足を入れ替えるプライオメトリクス種目。下半身の爆発的な筋力と持久力を同時に鍛える。',points:['空中で素早く足を入れ替える','着地はソフトに膝を曲げて吸収','リズミカルに連続して行う','体幹を安定させてブレを防ぐ']},
+{id:'nordic-curl',name:'ノルディックカール（ネガティブ）',category:'legs',muscles:['ハムストリング','臀筋'],difficulty:'advanced',description:'足首を固定した状態で、膝立ちから上体を前に倒していく種目。ハムストリングのエキセントリック筋力を鍛える最も効果的な方法の一つ。',points:['できる限りゆっくり前に倒れる','手で体を支えて安全に','ハムストリングのストレッチを感じる','元の姿勢に戻る時は手で補助してよい']},
+{id:'dragon-flag',name:'ドラゴンフラッグ練習',category:'core',muscles:['腹直筋','体幹全体','脊柱起立筋'],difficulty:'advanced',description:'ブルース・リーが好んだとされる究極の腹筋種目。ベンチに肩から上だけ乗せ、体全体を水平に保つ。全体幹筋肉の協調的な収縮が要求される。',points:['まず膝を曲げた短縮版から','肩甲骨でベンチを押さえる','体を水平より下に下げる','コントロールして動かす']},
+{id:'hanging-leg-raise',name:'ハンギングレッグレイズ',category:'core',muscles:['腹直筋下部','腸腰筋','前鋸筋','握力'],difficulty:'advanced',description:'バーにぶら下がったまま足を持ち上げる高難度体幹種目。不安定な状態での体幹制御が要求され、腹部全体への刺激が非常に強い。',points:['腰を丸めながら足を上げる','反動を使わない','握力強化も兼ねる','膝を曲げた状態から始めて徐々に難度を上げる']},
+];
+
+// ── DEFAULT PLANS ────────────────────────────────
+// dayOfWeek: 0=Sun,1=Mon,2=Tue,3=Wed,4=Thu,5=Fri,6=Sat
+const DEFAULT_PLAN={
+1:{
+  0:null,
+  1:[{exerciseId:'pushup',sets:3,reps:10,unit:'reps'},{exerciseId:'wide-pushup',sets:3,reps:10,unit:'reps'},{exerciseId:'pike-pushup',sets:3,reps:8,unit:'reps'},{exerciseId:'chair-dips',sets:3,reps:10,unit:'reps'}],
+  2:[{exerciseId:'table-pullup',sets:3,reps:10,unit:'reps'},{exerciseId:'superman',sets:3,reps:12,unit:'reps'},{exerciseId:'reverse-plank',sets:3,reps:30,unit:'seconds'},{exerciseId:'towel-row',sets:3,reps:10,unit:'reps'}],
+  3:[{exerciseId:'squat',sets:3,reps:15,unit:'reps'},{exerciseId:'lunge',sets:3,reps:10,unit:'reps'},{exerciseId:'glute-bridge',sets:3,reps:15,unit:'reps'},{exerciseId:'plank',sets:3,reps:30,unit:'seconds'},{exerciseId:'crunch',sets:3,reps:15,unit:'reps'}],
+  4:[{exerciseId:'pushup',sets:3,reps:10,unit:'reps'},{exerciseId:'wide-pushup',sets:3,reps:10,unit:'reps'},{exerciseId:'pike-pushup',sets:3,reps:8,unit:'reps'},{exerciseId:'chair-dips',sets:3,reps:10,unit:'reps'}],
+  5:[{exerciseId:'table-pullup',sets:3,reps:10,unit:'reps'},{exerciseId:'superman',sets:3,reps:12,unit:'reps'},{exerciseId:'reverse-plank',sets:3,reps:30,unit:'seconds'},{exerciseId:'towel-row',sets:3,reps:10,unit:'reps'}],
+  6:[{exerciseId:'squat',sets:3,reps:15,unit:'reps'},{exerciseId:'lunge',sets:3,reps:10,unit:'reps'},{exerciseId:'glute-bridge',sets:3,reps:15,unit:'reps'},{exerciseId:'plank',sets:3,reps:30,unit:'seconds'},{exerciseId:'crunch',sets:3,reps:15,unit:'reps'}],
+},
+2:{
+  0:null,
+  1:[{exerciseId:'archer-pushup',sets:4,reps:8,unit:'reps'},{exerciseId:'diamond-pushup',sets:3,reps:10,unit:'reps'},{exerciseId:'pike-pushup',sets:4,reps:12,unit:'reps'},{exerciseId:'tempo-pushup',sets:3,reps:8,unit:'reps'}],
+  2:[{exerciseId:'pullup',sets:4,reps:0,unit:'reps'},{exerciseId:'superman-hold',sets:3,reps:10,unit:'reps'},{exerciseId:'one-arm-towel-row',sets:3,reps:10,unit:'reps'},{exerciseId:'inverted-row',sets:3,reps:10,unit:'reps'}],
+  3:[{exerciseId:'bulgarian-squat',sets:3,reps:10,unit:'reps'},{exerciseId:'jump-squat',sets:3,reps:10,unit:'reps'},{exerciseId:'single-leg-rdl',sets:3,reps:10,unit:'reps'},{exerciseId:'side-plank',sets:3,reps:40,unit:'seconds'},{exerciseId:'leg-raise',sets:3,reps:15,unit:'reps'}],
+  4:[{exerciseId:'archer-pushup',sets:4,reps:8,unit:'reps'},{exerciseId:'diamond-pushup',sets:3,reps:10,unit:'reps'},{exerciseId:'pike-pushup',sets:4,reps:12,unit:'reps'},{exerciseId:'tempo-pushup',sets:3,reps:8,unit:'reps'}],
+  5:[{exerciseId:'pullup',sets:4,reps:0,unit:'reps'},{exerciseId:'superman-hold',sets:3,reps:10,unit:'reps'},{exerciseId:'one-arm-towel-row',sets:3,reps:10,unit:'reps'},{exerciseId:'inverted-row',sets:3,reps:10,unit:'reps'}],
+  6:[{exerciseId:'bulgarian-squat',sets:3,reps:10,unit:'reps'},{exerciseId:'jump-squat',sets:3,reps:10,unit:'reps'},{exerciseId:'single-leg-rdl',sets:3,reps:10,unit:'reps'},{exerciseId:'side-plank',sets:3,reps:40,unit:'seconds'},{exerciseId:'leg-raise',sets:3,reps:15,unit:'reps'}],
+},
+3:{
+  0:null,
+  1:[{exerciseId:'clapping-pushup',sets:3,reps:8,unit:'reps'},{exerciseId:'pike-pushup',sets:4,reps:10,unit:'reps'},{exerciseId:'archer-pushup',sets:4,reps:10,unit:'reps'},{exerciseId:'pushup-challenge',sets:1,reps:100,unit:'reps'}],
+  2:[{exerciseId:'pullup',sets:5,reps:0,unit:'reps'},{exerciseId:'heavy-towel-row',sets:4,reps:12,unit:'reps'},{exerciseId:'superman-slow',sets:3,reps:15,unit:'reps'},{exerciseId:'front-lever',sets:3,reps:10,unit:'seconds'}],
+  3:[{exerciseId:'pistol-squat',sets:3,reps:5,unit:'reps'},{exerciseId:'jump-lunge',sets:3,reps:12,unit:'reps'},{exerciseId:'nordic-curl',sets:3,reps:6,unit:'reps'},{exerciseId:'dragon-flag',sets:3,reps:5,unit:'reps'},{exerciseId:'hanging-leg-raise',sets:3,reps:12,unit:'reps'}],
+  4:[{exerciseId:'clapping-pushup',sets:3,reps:8,unit:'reps'},{exerciseId:'pike-pushup',sets:4,reps:10,unit:'reps'},{exerciseId:'archer-pushup',sets:4,reps:10,unit:'reps'},{exerciseId:'pushup-challenge',sets:1,reps:100,unit:'reps'}],
+  5:[{exerciseId:'pullup',sets:5,reps:0,unit:'reps'},{exerciseId:'heavy-towel-row',sets:4,reps:12,unit:'reps'},{exerciseId:'superman-slow',sets:3,reps:15,unit:'reps'},{exerciseId:'front-lever',sets:3,reps:10,unit:'seconds'}],
+  6:[{exerciseId:'pistol-squat',sets:3,reps:5,unit:'reps'},{exerciseId:'jump-lunge',sets:3,reps:12,unit:'reps'},{exerciseId:'nordic-curl',sets:3,reps:6,unit:'reps'},{exerciseId:'dragon-flag',sets:3,reps:5,unit:'reps'},{exerciseId:'hanging-leg-raise',sets:3,reps:12,unit:'reps'}],
+},
+};
+
+const DAY_NAMES=['日','月','火','水','木','金','土'];
+const DAY_TYPE={0:null,1:'push',2:'pull',3:'legs',4:'push',5:'pull',6:'legs'};
+const TYPE_LABELS={push:'プッシュ系',pull:'プル系',legs:'脚・体幹',null:'休息日'};
+const TYPE_COLORS={push:C.accent,pull:C.success,legs:C.warn,null:C.muted};
+const DIFF_LABELS={beginner:'初級',intermediate:'中級',advanced:'上級'};
+const DIFF_COLORS={beginner:C.success,intermediate:C.accent,advanced:C.danger};
+
+// ── STORAGE ──────────────────────────────────────
+const store={
+  get:(k)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch{return null}},
+  set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}},
+};
+
+// ── DATE UTILS ────────────────────────────────────
+const fmt=(d)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const parseDate=(s)=>new Date(s+'T00:00:00');
+const today=()=>fmt(new Date());
+const addDays=(s,n)=>{const d=parseDate(s);d.setDate(d.getDate()+n);return fmt(d)};
+const dowOf=(s)=>parseDate(s).getDay();
+const monthStart=(y,m)=>fmt(new Date(y,m,1));
+const daysInMonth=(y,m)=>new Date(y,m+1,0).getDate();
+
+// ── PLAN & LOG UTILS ──────────────────────────────
+const getSettings=()=>{const d=store.get('app_settings')||{};return {currentPhase:1,startDate:today(),phaseWeeks:[4,4,4],autoPhase:true,...d};};
+const saveSettings=(s)=>store.set('app_settings',s);
+const getPhaseRange=(s,p)=>{
+  const weeks=s.phaseWeeks||[4,4,4];
+  let offset=0;for(let i=0;i<p-1;i++)offset+=weeks[i];
+  const start=addDays(s.startDate,offset*7);
+  const end=addDays(start,(weeks[p-1]||4)*7-1);
+  return {start,end};
+};
+const detectCurrentPhase=(s)=>{
+  const t=today();
+  for(let p=1;p<=3;p++){const r=getPhaseRange(s,p);if(t>=r.start&&t<=r.end)return p;}
+  const end3=getPhaseRange(s,3).end;return t>end3?3:1;
+};
+const getCustomPlans=()=>store.get('custom_plans')||[];
+const saveCustomPlans=(p)=>store.set('custom_plans',p);
+
+const getPlanForDay=(phase,dow)=>{
+  const cp=getCustomPlans();
+  const custom=cp.find(p=>p.phase===phase&&p.dayOfWeek===dow);
+  if(custom)return custom.exercises.length>0?custom.exercises:null;
+  return DEFAULT_PLAN[phase][dow]||null;
+};
+
+const getLog=(date)=>store.get(`day_log_${date}`)||{date,sets:[]};
+const saveLog=(date,sets)=>store.set(`day_log_${date}`,{date,sets});
+
+const isSetDone=(log,exId,si)=>log.sets.some(s=>s.exerciseId===exId&&s.setIndex===si);
+const getSetRec=(log,exId,si)=>log.sets.find(s=>s.exerciseId===exId&&s.setIndex===si)||null;
+
+const countDoneSets=(log,plan)=>{
+  if(!plan)return 0;
+  let n=0;
+  for(const ex of plan){
+    for(let i=0;i<ex.sets;i++){
+      if(isSetDone(log,ex.exerciseId,i))n++;
+    }
+  }
+  return n;
+};
+
+const totalPlanSets=(plan)=>plan?plan.reduce((s,e)=>s+e.sets,0):0;
+
+// ── STATS ─────────────────────────────────────────
+const calcWeekStats=(settings)=>{
+  const t=today();
+  const dow=dowOf(t);
+  const weekStart=addDays(t,-(dow===0?6:dow-1));
+  let total=0,done=0;
+  for(let i=0;i<7;i++){
+    const d=addDays(weekStart,i);
+    const plan=getPlanForDay(settings.currentPhase,dowOf(d));
+    if(!plan)continue;
+    total+=totalPlanSets(plan);
+    done+=countDoneSets(getLog(d),plan);
+  }
+  return{total,done,rate:total>0?Math.min(100,Math.round(done/total*100)):0};
+};
+
+const calcStreak=(settings)=>{
+  const t=today();
+  let streak=0;
+  for(let i=0;i<365;i++){
+    const d=addDays(t,-i);
+    const dow=dowOf(d);
+    const plan=getPlanForDay(settings.currentPhase,dow);
+    if(!plan||plan.length===0)continue;
+    const log=getLog(d);
+    if(log.sets.length>0){streak++;}
+    else if(i===0){continue;}
+    else{break;}
+  }
+  return streak;
+};
+
+const calcMonthStats=(settings,year,month)=>{
+  const days=daysInMonth(year,month);
+  const trainDays=[];
+  for(let d=1;d<=days;d++){
+    const ds=`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const plan=getPlanForDay(settings.currentPhase,dowOf(ds));
+    if(!plan)continue;
+    const log=getLog(ds);
+    if(log.sets.length>0)trainDays.push(ds);
+  }
+  return trainDays;
+};
+
+const calcTotalSets=()=>{
+  let total=0;
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    if(k&&k.startsWith('day_log_')){
+      const v=store.get(k);
+      if(v&&v.sets)total+=v.sets.length;
+    }
+  }
+  return total;
+};
+
+// ── EXERCISE LOOKUP ───────────────────────────────
+const exMap=Object.fromEntries(EXERCISES.map(e=>[e.id,e]));
+
+// ── MODAL ─────────────────────────────────────────
+const Modal=({open,onClose,title,children})=>{
+  if(!open)return null;
+  return(
+    <div style={{position:'fixed',inset:0,zIndex:100,display:'flex',alignItems:'flex-end',background:'rgba(0,0,0,0.7)'}} onClick={e=>{if(e.target===e.currentTarget)onClose()}}>
+      <div className="fadeUp" style={{background:C.card,width:'100%',maxWidth:430,borderRadius:'16px 16px 0 0',padding:'20px 16px 32px',maxHeight:'90vh',overflowY:'auto'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+          <span style={{fontWeight:700,fontSize:16}}>{title}</span>
+          <button onClick={onClose} style={{background:'none',border:'none',color:C.muted,fontSize:22,cursor:'pointer',padding:'4px 8px'}}>×</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+};
+
+// ── BOTTOM NAV ────────────────────────────────────
+const BottomNav=({tab,setTab})=>{
+  const items=[
+    {id:'today',label:'今日',icon:<svg viewBox="0 0 24 24" width="22" height="22" fill="none"><rect x="3" y="4" width="18" height="17" rx="2" stroke="currentColor" strokeWidth="2"/><line x1="3" y1="9" x2="21" y2="9" stroke="currentColor" strokeWidth="2"/><circle cx="8" cy="14" r="1.5" fill="currentColor"/><circle cx="12" cy="14" r="1.5" fill="currentColor"/><circle cx="16" cy="14" r="1.5" fill="currentColor"/></svg>},
+    {id:'schedule',label:'スケジュール',icon:<svg viewBox="0 0 24 24" width="22" height="22" fill="none"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>},
+    {id:'history',label:'履歴',icon:<svg viewBox="0 0 24 24" width="22" height="22" fill="none"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>},
+    {id:'library',label:'図鑑',icon:<svg viewBox="0 0 24 24" width="22" height="22" fill="none"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" stroke="currentColor" strokeWidth="2"/></svg>},
+  ];
+  return(
+    <nav style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:430,background:C.card,borderTop:`1px solid ${C.dark}`,display:'flex',zIndex:50}}>
+      {items.map(it=>(
+        <button key={it.id} onClick={()=>setTab(it.id)} style={{flex:1,background:'none',border:'none',padding:'10px 0 12px',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:3,color:tab===it.id?C.accent:C.muted,transition:'color .2s'}}>
+          {it.icon}
+          <span style={{fontSize:10,fontFamily:'inherit'}}>{it.label}</span>
+        </button>
+      ))}
+    </nav>
+  );
+};
+
+// ── EXERCISE DETAIL MODAL ─────────────────────────
+const ExerciseDetailModal=({ex,open,onClose})=>{
+  if(!ex)return null;
+  const SvgComp=SVGS[ex.id];
+  return(
+    <Modal open={open} onClose={onClose} title={ex.name}>
+      <div style={{background:C.bg,borderRadius:12,overflow:'hidden',marginBottom:16}}>
+        {SvgComp&&<SvgComp/>}
+      </div>
+      <div style={{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap'}}>
+        {ex.muscles.map(m=>(
+          <span key={m} style={{background:C.dark,color:C.text,fontSize:11,padding:'3px 8px',borderRadius:20}}>{m}</span>
+        ))}
+        <span style={{background:DIFF_COLORS[ex.difficulty]+'22',color:DIFF_COLORS[ex.difficulty],fontSize:11,padding:'3px 8px',borderRadius:20,border:`1px solid ${DIFF_COLORS[ex.difficulty]}44`}}>{DIFF_LABELS[ex.difficulty]}</span>
+      </div>
+      <p style={{color:C.muted,fontSize:14,lineHeight:1.7,marginBottom:16}}>{ex.description}</p>
+      <div style={{borderLeft:`2px solid ${C.accent}`,paddingLeft:12}}>
+        <p style={{color:C.accent,fontSize:11,fontWeight:700,marginBottom:8,letterSpacing:2}}>POINTS</p>
+        {ex.points.map((p,i)=>(
+          <div key={i} style={{display:'flex',gap:8,marginBottom:6,fontSize:13,color:C.text}}>
+            <span style={{color:C.accent,flexShrink:0}}>·</span>
+            <span>{p}</span>
+          </div>
+        ))}
+      </div>
+    </Modal>
+  );
+};
+
+// ── TODAY TAB ─────────────────────────────────────
+const TodayTab=({settings,viewDate,setViewDate})=>{
+  const [log,setLog]=useState(()=>getLog(viewDate));
+  const [detailEx,setDetailEx]=useState(null);
+  const [checkedAnim,setCheckedAnim]=useState({});
+  const [repInputs,setRepInputs]=useState({});
+  const [memoInputs,setMemoInputs]=useState({});
+  const longPressRef=useRef(null);
+
+  const dow=dowOf(viewDate);
+  const plan=getPlanForDay(settings.currentPhase,dow);
+  const isToday=viewDate===today();
+  const dateObj=parseDate(viewDate);
+
+  useEffect(()=>{
+    const l=getLog(viewDate);
+    setLog(l);
+    const ri={},mi={};
+    l.sets.forEach(s=>{
+      const k=`${s.exerciseId}_${s.setIndex}`;
+      ri[k]=String(s.reps||'');
+      mi[k]=s.memo||'';
+    });
+    setRepInputs(ri);
+    setMemoInputs(mi);
+  },[viewDate]);
+
+  const weekStats=useMemo(()=>calcWeekStats(settings),[log,settings]);
+  const streak=useMemo(()=>calcStreak(settings),[log,settings]);
+
+  const allDone=plan&&plan.every(ex=>
+    Array.from({length:ex.sets},(_,i)=>isSetDone(log,ex.exerciseId,i)).every(Boolean)
+  );
+
+  const toggleSet=(exId,si)=>{
+    const done=isSetDone(log,exId,si);
+    let newSets;
+    if(done){
+      newSets=log.sets.filter(s=>!(s.exerciseId===exId&&s.setIndex===si));
+    }else{
+      const k=`${exId}_${si}`;
+      newSets=[...log.sets,{exerciseId:exId,setIndex:si,reps:parseInt(repInputs[k]||'0'),memo:memoInputs[k]||'',completedAt:new Date().toISOString()}];
+      setCheckedAnim(prev=>({...prev,[`${exId}_${si}`]:true}));
+      setTimeout(()=>setCheckedAnim(prev=>({...prev,[`${exId}_${si}`]:false})),300);
+    }
+    saveLog(viewDate,newSets);
+    setLog({date:viewDate,sets:newSets});
+  };
+
+  const updateReps=(exId,si,val)=>{
+    const k=`${exId}_${si}`;
+    setRepInputs(prev=>({...prev,[k]:val}));
+    const newSets=log.sets.map(s=>{
+      if(s.exerciseId===exId&&s.setIndex===si)return{...s,reps:parseInt(val)||0};
+      return s;
+    });
+    saveLog(viewDate,newSets);
+    setLog({date:viewDate,sets:newSets});
+  };
+
+  const updateMemo=(exId,si,val)=>{
+    const k=`${exId}_${si}`;
+    setMemoInputs(prev=>({...prev,[k]:val}));
+    const newSets=log.sets.map(s=>{
+      if(s.exerciseId===exId&&s.setIndex===si)return{...s,memo:val};
+      return s;
+    });
+    saveLog(viewDate,newSets);
+    setLog({date:viewDate,sets:newSets});
+  };
+
+  return(
+    <div style={{paddingBottom:80}}>
+      {/* Header */}
+      <div style={{padding:'16px 16px 0',background:`linear-gradient(180deg,#0e0e1a 0%,${C.bg} 100%)`}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+          <span style={{color:C.muted,fontSize:12,letterSpacing:2}}>CLASSROOM OF THE ELITE</span>
+          <div style={{display:'flex',gap:8,alignItems:'center'}}>
+            <button onClick={()=>setViewDate(addDays(viewDate,-1))} style={{background:C.dark,border:'none',color:C.text,width:28,height:28,borderRadius:6,cursor:'pointer',fontSize:14}}>‹</button>
+            <span style={{fontSize:13,color:C.text}}>{dateObj.getMonth()+1}/{dateObj.getDate()}</span>
+            <button onClick={()=>setViewDate(addDays(viewDate,1))} disabled={viewDate>=today()} style={{background:viewDate>=today()?C.bg:C.dark,border:'none',color:viewDate>=today()?C.dark:C.text,width:28,height:28,borderRadius:6,cursor:viewDate>=today()?'default':'pointer',fontSize:14}}>›</button>
+          </div>
+        </div>
+        <h1 style={{fontSize:22,fontWeight:700,letterSpacing:1,marginBottom:12}}>
+          {isToday?'今日のトレーニング':`${DAY_NAMES[dow]}曜日 — Phase ${settings.currentPhase}`}
+        </h1>
+
+        {/* Stats Cards */}
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:16}}>
+          <div style={{background:C.card,borderRadius:12,padding:'12px 14px',borderLeft:`3px solid ${C.accent}`}}>
+            <p style={{color:C.muted,fontSize:10,letterSpacing:1,marginBottom:6}}>今週の達成率</p>
+            <p style={{fontSize:22,fontWeight:700,color:C.accent}}>{weekStats.rate}<span style={{fontSize:12}}>%</span></p>
+            <div style={{background:C.dark,borderRadius:4,height:4,marginTop:6}}>
+              <div style={{background:C.accent,height:4,borderRadius:4,width:`${weekStats.rate}%`,transition:'width .5s'}}/>
+            </div>
+            <p style={{color:C.muted,fontSize:10,marginTop:4}}>{weekStats.done}/{weekStats.total} セット</p>
+          </div>
+          <div style={{background:C.card,borderRadius:12,padding:'12px 14px',borderLeft:`3px solid ${C.success}`}}>
+            <p style={{color:C.muted,fontSize:10,letterSpacing:1,marginBottom:6}}>連続記録</p>
+            <p style={{fontSize:22,fontWeight:700,color:C.success}}>{streak}<span style={{fontSize:12}}>日</span></p>
+            <p style={{fontSize:18,marginTop:2}}>🔥</p>
+            <p style={{color:C.muted,fontSize:10,marginTop:4}}>ストリーク</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Completion Banner */}
+      {allDone&&plan&&(
+        <div className="fadeUp" style={{margin:'0 16px 16px',background:'linear-gradient(135deg,#1a3a2a,#0f2a1a)',border:`1px solid ${C.success}`,borderRadius:12,padding:'14px 16px',display:'flex',alignItems:'center',gap:10}}>
+          <span style={{fontSize:24}}>✅</span>
+          <div>
+            <p style={{color:C.success,fontWeight:700,fontSize:14}}>今日のトレーニング完了！</p>
+            <p style={{color:C.muted,fontSize:12}}>綾小路式で今日も実力を高めた</p>
+          </div>
+        </div>
+      )}
+
+      {/* Rest Day */}
+      {!plan&&(
+        <div style={{margin:'0 16px',background:C.card,borderRadius:12,padding:24,textAlign:'center',border:`1px solid ${C.dark}`}}>
+          <p style={{fontSize:32,marginBottom:8}}>🌙</p>
+          <p style={{fontWeight:700,fontSize:16,marginBottom:8}}>今日は休息日</p>
+          <p style={{color:C.muted,fontSize:14}}>回復も鍛錬のうち</p>
+          <p style={{color:C.muted,fontSize:12,marginTop:8,fontStyle:'italic'}}>— 綾小路 清隆</p>
+        </div>
+      )}
+
+      {/* Exercise Cards */}
+      <div style={{padding:'0 16px',display:'flex',flexDirection:'column',gap:12}}>
+        {plan&&plan.map(planEx=>{
+          const ex=exMap[planEx.exerciseId];
+          if(!ex)return null;
+          const doneSets=Array.from({length:planEx.sets},(_,i)=>isSetDone(log,ex.id,i));
+          const allExDone=doneSets.every(Boolean);
+          return(
+            <div key={ex.id} style={{background:C.card,borderRadius:12,padding:'14px',border:`1px solid ${allExDone?C.success+'60':C.dark}`,transition:'border-color .3s',position:'relative'}}>
+              {allExDone&&<span style={{position:'absolute',top:12,right:12,color:C.success,fontSize:16}}>✓</span>}
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
+                <div style={{flex:1,paddingRight:24}}>
+                  <button onClick={()=>setDetailEx(ex)} style={{background:'none',border:'none',padding:0,cursor:'pointer',textAlign:'left'}}>
+                    <p style={{fontWeight:700,fontSize:15,color:allExDone?C.success:C.text,transition:'color .3s'}}>{ex.name}</p>
+                  </button>
+                  <p style={{color:C.muted,fontSize:11,marginTop:2}}>{ex.muscles.join(' · ')}</p>
+                </div>
+                <span style={{background:TYPE_COLORS[DAY_TYPE[dowOf(viewDate)]]+'22',color:TYPE_COLORS[DAY_TYPE[dowOf(viewDate)]],fontSize:10,padding:'2px 7px',borderRadius:20,flexShrink:0,border:`1px solid ${TYPE_COLORS[DAY_TYPE[dowOf(viewDate)]]}44`}}>
+                  {planEx.sets}セット×{planEx.reps>0?planEx.reps:'MAX'}{planEx.unit==='seconds'?'秒':'回'}
+                </span>
+              </div>
+
+              {/* Set Rows */}
+              <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                {Array.from({length:planEx.sets},(_,si)=>{
+                  const k=`${ex.id}_${si}`;
+                  const done=isSetDone(log,ex.id,si);
+                  return(
+                    <div key={si} style={{display:'flex',gap:8,alignItems:'center',background:done?C.success+'11':C.dark+'66',borderRadius:8,padding:'7px 10px',transition:'background .3s'}}>
+                      <button
+                        onClick={()=>toggleSet(ex.id,si)}
+                        className={checkedAnim[k]?'pulse':''}
+                        style={{width:26,height:26,borderRadius:6,background:done?C.success:C.dark,border:`2px solid ${done?C.success:C.muted+'44'}`,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all .2s'}}
+                      >
+                        {done&&<span style={{color:'#000',fontSize:14,fontWeight:700}}>✓</span>}
+                      </button>
+                      <span style={{color:C.muted,fontSize:12,width:36,flexShrink:0}}>Set {si+1}</span>
+                      <input
+                        type="number"
+                        placeholder={planEx.reps>0?String(planEx.reps):'MAX'}
+                        value={repInputs[k]||''}
+                        onChange={e=>updateReps(ex.id,si,e.target.value)}
+                        style={{width:52,background:'transparent',border:`1px solid ${C.dark}`,borderRadius:6,color:C.text,padding:'3px 6px',fontSize:13,textAlign:'center'}}
+                        min="0"
+                      />
+                      <span style={{color:C.muted,fontSize:11}}>{planEx.unit==='seconds'?'秒':'回'}</span>
+                      <input
+                        type="text"
+                        placeholder="メモ"
+                        value={memoInputs[k]||''}
+                        onChange={e=>updateMemo(ex.id,si,e.target.value)}
+                        style={{flex:1,background:'transparent',border:`1px solid ${C.dark}`,borderRadius:6,color:C.text,padding:'3px 8px',fontSize:12}}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <ExerciseDetailModal ex={detailEx} open={!!detailEx} onClose={()=>setDetailEx(null)}/>
+    </div>
+  );
+};
+
+// ── PHASE SETTINGS MODAL ──────────────────────────
+const PhaseSettingsModal=({settings,onSave,onClose})=>{
+  const [startDate,setStartDate]=useState(settings.startDate);
+  const [weeks,setWeeks]=useState([...(settings.phaseWeeks||[4,4,4])]);
+  const [auto,setAuto]=useState(settings.autoPhase!==false);
+  const total=weeks.reduce((a,b)=>a+(parseInt(b)||0),0);
+  const fmtDate=(s)=>{if(!s)return '';const d=parseDate(s);return `${d.getMonth()+1}月${d.getDate()}日`;};
+  const ranges=[1,2,3].map(p=>{
+    let off=0;for(let i=0;i<p-1;i++)off+=(parseInt(weeks[i])||0);
+    const s2=addDays(startDate,off*7);
+    const e2=addDays(s2,((parseInt(weeks[p-1])||0)*7)-1);
+    return {start:s2,end:e2};
+  });
+  const save=()=>{
+    const ns={...settings,startDate,phaseWeeks:weeks.map(w=>parseInt(w)||4),autoPhase:auto};
+    if(auto){const p=detectCurrentPhase(ns);ns.currentPhase=p;}
+    onSave(ns);
+  };
+  return(
+    <Modal open={true} onClose={onClose} title="フェーズ期間設定">
+      <div style={{display:'flex',flexDirection:'column',gap:14}}>
+        <div>
+          <label style={{fontSize:12,color:C.muted,display:'block',marginBottom:4}}>開始日</label>
+          <input type="date" value={startDate} onChange={e=>setStartDate(e.target.value)}
+            style={{width:'100%',background:C.dark,border:`1px solid ${C.dark}`,borderRadius:8,color:C.text,padding:'8px 12px',fontSize:14,fontFamily:'inherit',boxSizing:'border-box'}}/>
+        </div>
+        {[0,1,2].map(i=>(
+          <div key={i} style={{background:C.bg,borderRadius:10,padding:'10px 12px'}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
+              <span style={{fontWeight:700,fontSize:13,color:C.accent}}>Phase {i+1}</span>
+              <div style={{display:'flex',alignItems:'center',gap:6}}>
+                <input type="number" min="1" max="52" value={weeks[i]}
+                  onChange={e=>{const w=[...weeks];w[i]=e.target.value;setWeeks(w);}}
+                  style={{width:52,background:C.card,border:`1px solid ${C.dark}`,borderRadius:6,color:C.text,padding:'4px 8px',fontSize:14,textAlign:'center',fontFamily:'inherit'}}/>
+                <span style={{fontSize:12,color:C.muted}}>週間</span>
+              </div>
+            </div>
+            <span style={{fontSize:11,color:C.muted}}>{fmtDate(ranges[i].start)} 〜 {fmtDate(ranges[i].end)}</span>
+          </div>
+        ))}
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <input type="checkbox" id="auto-phase" checked={auto} onChange={e=>setAuto(e.target.checked)}
+            style={{width:16,height:16,accentColor:C.accent}}/>
+          <label htmlFor="auto-phase" style={{fontSize:13,color:C.muted,cursor:'pointer'}}>今日の日付に合わせて現在フェーズを自動設定</label>
+        </div>
+        <div style={{fontSize:11,color:C.muted,textAlign:'right'}}>合計 {total} 週間（約 {Math.round(total/4)} ヶ月）</div>
+        <button onClick={save} style={{background:C.accent,border:'none',borderRadius:10,color:'#fff',padding:'12px',fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>保存</button>
+      </div>
+    </Modal>
+  );
+};
+
+// ── SCHEDULE TAB ──────────────────────────────────
+const ScheduleTab=({settings,setSettings})=>{
+  const [phase,setPhase]=useState(settings.currentPhase);
+  const [editDay,setEditDay]=useState(null);
+  const [showPhaseSetting,setShowPhaseSetting]=useState(false);
+  const t=today();
+
+  const setCurrentPhase=(p)=>{
+    const ns={...settings,currentPhase:p};
+    setSettings(ns);
+    saveSettings(ns);
+    setPhase(p);
+  };
+
+  const savePhaseSettings=(ns)=>{
+    setSettings(ns);
+    saveSettings(ns);
+    setPhase(ns.currentPhase);
+    setShowPhaseSetting(false);
+  };
+
+  const phaseRange=getPhaseRange(settings,phase);
+  const fmtShort=(s)=>{if(!s)return '';const d=parseDate(s);return `${d.getMonth()+1}/${d.getDate()}`;};
+
+  return(
+    <div style={{paddingBottom:80}}>
+      <div style={{padding:'16px 16px 12px',background:`linear-gradient(180deg,#0e0e1a 0%,${C.bg} 100%)`}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+          <h1 style={{fontSize:20,fontWeight:700,letterSpacing:1}}>週間スケジュール</h1>
+          <button onClick={()=>setShowPhaseSetting(true)} style={{background:C.card,border:`1px solid ${C.dark}`,borderRadius:8,color:C.muted,fontSize:12,padding:'6px 10px',cursor:'pointer',fontFamily:'inherit'}}>⚙ 期間設定</button>
+        </div>
+        {/* Phase tabs */}
+        <div style={{display:'flex',gap:6,marginBottom:6}}>
+          {[1,2,3].map(p=>(
+            <button key={p} onClick={()=>setCurrentPhase(p)} style={{flex:1,padding:'8px 0',borderRadius:8,border:`1px solid ${phase===p?C.accent:C.dark}`,background:phase===p?C.accent+'22':C.card,color:phase===p?C.accent:C.muted,fontWeight:phase===p?700:400,fontSize:13,cursor:'pointer',fontFamily:'inherit',transition:'all .2s'}}>
+              Phase {p}
+            </button>
+          ))}
+        </div>
+        <div style={{textAlign:'center',fontSize:11,color:C.muted,marginBottom:2}}>
+          {fmtShort(phaseRange.start)} 〜 {fmtShort(phaseRange.end)}（{settings.phaseWeeks?.[phase-1]||4}週間）
+        </div>
+      </div>
+      {showPhaseSetting&&<PhaseSettingsModal settings={settings} onSave={savePhaseSettings} onClose={()=>setShowPhaseSetting(false)}/>}
+
+      <div style={{padding:'8px 16px',display:'flex',flexDirection:'column',gap:8}}>
+        {[1,2,3,4,5,6,0].map(dow=>{
+          const plan=getPlanForDay(phase,dow);
+          const dt=DAY_TYPE[dow];
+          const isTodays=dowOf(t)===dow;
+          return(
+            <div key={dow} style={{background:C.card,borderRadius:12,padding:'12px 14px',border:`1px solid ${isTodays?C.accent:C.dark}`,transition:'border-color .2s'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:plan?8:0}}>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  {isTodays&&<div style={{width:6,height:6,borderRadius:3,background:C.accent,flexShrink:0}}/>}
+                  <span style={{fontWeight:700,fontSize:15}}>{DAY_NAMES[dow]}曜日</span>
+                  <span style={{background:TYPE_COLORS[dt]+'22',color:TYPE_COLORS[dt],fontSize:10,padding:'2px 8px',borderRadius:20,border:`1px solid ${TYPE_COLORS[dt]}44`}}>{TYPE_LABELS[dt]||'休息日'}</span>
+                </div>
+                {plan&&<button onClick={()=>setEditDay({dow,phase,plan:[...plan]})} style={{background:C.dark,border:'none',color:C.muted,fontSize:11,padding:'4px 10px',borderRadius:6,cursor:'pointer',fontFamily:'inherit'}}>編集</button>}
+              </div>
+              {plan&&(
+                <div style={{display:'flex',flexDirection:'column',gap:3}}>
+                  {plan.map(pe=>{
+                    const ex=exMap[pe.exerciseId];
+                    return ex?(
+                      <div key={pe.exerciseId} style={{display:'flex',justifyContent:'space-between',fontSize:12,color:C.muted,padding:'2px 0'}}>
+                        <span>{ex.name}</span>
+                        <span>{pe.sets}×{pe.reps>0?pe.reps:'MAX'}{pe.unit==='seconds'?'秒':'回'}</span>
+                      </div>
+                    ):null;
+                  })}
+                </div>
+              )}
+              {!plan&&<p style={{color:C.muted,fontSize:12}}>回復も鍛錬のうち</p>}
+            </div>
+          );
+        })}
+      </div>
+
+      {editDay&&<EditDayModal editDay={editDay} onClose={()=>setEditDay(null)}/>}
+    </div>
+  );
+};
+
+// ── EDIT DAY MODAL ────────────────────────────────
+const EditDayModal=({editDay,onClose})=>{
+  const [plan,setPlan]=useState(editDay.plan.map(p=>({...p})));
+  const [showAdd,setShowAdd]=useState(false);
+
+  const save=()=>{
+    const cp=getCustomPlans().filter(p=>!(p.phase===editDay.phase&&p.dayOfWeek===editDay.dow));
+    cp.push({phase:editDay.phase,dayOfWeek:editDay.dow,exercises:plan});
+    saveCustomPlans(cp);
+    onClose();
+    window.location.reload();
+  };
+
+  const reset=()=>{
+    const cp=getCustomPlans().filter(p=>!(p.phase===editDay.phase&&p.dayOfWeek===editDay.dow));
+    saveCustomPlans(cp);
+    onClose();
+    window.location.reload();
+  };
+
+  const remove=(idx)=>setPlan(p=>p.filter((_,i)=>i!==idx));
+  const move=(idx,dir)=>{
+    const np=[...plan];
+    const ni=idx+dir;
+    if(ni<0||ni>=np.length)return;
+    [np[idx],np[ni]]=[np[ni],np[idx]];
+    setPlan(np);
+  };
+  const addEx=(ex)=>{
+    setPlan(p=>[...p,{exerciseId:ex.id,sets:3,reps:10,unit:'reps'}]);
+    setShowAdd(false);
+  };
+
+  return(
+    <Modal open={true} onClose={onClose} title={`${DAY_NAMES[editDay.dow]}曜日 編集（Phase ${editDay.phase}）`}>
+      <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:16}}>
+        {plan.map((pe,idx)=>{
+          const ex=exMap[pe.exerciseId];
+          return ex?(
+            <div key={idx} style={{background:C.bg,borderRadius:10,padding:'10px 12px',display:'flex',alignItems:'center',gap:8}}>
+              <div style={{flex:1}}>
+                <p style={{fontSize:13,fontWeight:600}}>{ex.name}</p>
+                <div style={{display:'flex',gap:8,marginTop:6,alignItems:'center'}}>
+                  <input type="number" value={pe.sets} min="1" max="10"
+                    onChange={e=>setPlan(p=>p.map((x,i)=>i===idx?{...x,sets:parseInt(e.target.value)||1}:x))}
+                    style={{width:40,background:C.dark,border:'none',borderRadius:4,color:C.text,padding:'3px 6px',fontSize:12,textAlign:'center'}}/>
+                  <span style={{color:C.muted,fontSize:11}}>セット×</span>
+                  <input type="number" value={pe.reps} min="0"
+                    onChange={e=>setPlan(p=>p.map((x,i)=>i===idx?{...x,reps:parseInt(e.target.value)||0}:x))}
+                    style={{width:44,background:C.dark,border:'none',borderRadius:4,color:C.text,padding:'3px 6px',fontSize:12,textAlign:'center'}}/>
+                  <select value={pe.unit} onChange={e=>setPlan(p=>p.map((x,i)=>i===idx?{...x,unit:e.target.value}:x))}
+                    style={{background:C.dark,border:'none',borderRadius:4,color:C.muted,padding:'3px 6px',fontSize:11}}>
+                    <option value="reps">回</option>
+                    <option value="seconds">秒</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{display:'flex',flexDirection:'column',gap:4}}>
+                <button onClick={()=>move(idx,-1)} style={{background:C.dark,border:'none',color:C.muted,borderRadius:4,width:26,height:22,cursor:'pointer',fontSize:12}}>↑</button>
+                <button onClick={()=>move(idx,1)} style={{background:C.dark,border:'none',color:C.muted,borderRadius:4,width:26,height:22,cursor:'pointer',fontSize:12}}>↓</button>
+              </div>
+              <button onClick={()=>remove(idx)} style={{background:'none',border:'none',color:C.danger,fontSize:18,cursor:'pointer',padding:'4px'}}>×</button>
+            </div>
+          ):null;
+        })}
+      </div>
+
+      <button onClick={()=>setShowAdd(v=>!v)} style={{width:'100%',padding:'10px',background:C.accent+'22',border:`1px dashed ${C.accent}`,borderRadius:8,color:C.accent,cursor:'pointer',fontSize:13,fontFamily:'inherit',marginBottom:16}}>
+        ＋ 種目を追加
+      </button>
+
+      {showAdd&&(
+        <div style={{background:C.bg,borderRadius:10,padding:10,marginBottom:16,maxHeight:200,overflowY:'auto'}}>
+          {EXERCISES.map(ex=>(
+            <button key={ex.id} onClick={()=>addEx(ex)} style={{display:'block',width:'100%',textAlign:'left',background:'none',border:`1px solid ${C.dark}`,borderRadius:6,padding:'8px 10px',cursor:'pointer',fontSize:12,color:C.text,marginBottom:4,fontFamily:'inherit'}}>
+              {ex.name} <span style={{color:C.muted}}>— {ex.muscles[0]}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div style={{display:'flex',gap:8}}>
+        <button onClick={reset} style={{flex:1,padding:'11px',background:'none',border:`1px solid ${C.dark}`,borderRadius:8,color:C.muted,cursor:'pointer',fontSize:13,fontFamily:'inherit'}}>デフォルトに戻す</button>
+        <button onClick={save} style={{flex:2,padding:'11px',background:C.accent,border:'none',borderRadius:8,color:'#fff',cursor:'pointer',fontSize:13,fontWeight:700,fontFamily:'inherit'}}>保存</button>
+      </div>
+    </Modal>
+  );
+};
+
+// ── HISTORY TAB ───────────────────────────────────
+const HistoryTab=({settings})=>{
+  const now=new Date();
+  const [year,setYear]=useState(now.getFullYear());
+  const [month,setMonth]=useState(now.getMonth());
+  const [selDate,setSelDate]=useState(null);
+
+  const trainDays=useMemo(()=>calcMonthStats(settings,year,month),[settings,year,month]);
+  const trainSet=new Set(trainDays);
+
+  const firstDow=parseDate(`${year}-${String(month+1).padStart(2,'0')}-01`).getDay();
+  const days=daysInMonth(year,month);
+
+  const totalSets=useMemo(()=>calcTotalSets(),[]);
+  const weekStats=useMemo(()=>calcWeekStats(settings),[settings]);
+  const streak=useMemo(()=>calcStreak(settings),[settings]);
+  const monthCount=trainDays.length;
+
+  const prevMonth=()=>{if(month===0){setYear(y=>y-1);setMonth(11)}else setMonth(m=>m-1)};
+  const nextMonth=()=>{if(month===11){setYear(y=>y+1);setMonth(0)}else setMonth(m=>m+1)};
+
+  // Weekly bar chart: last 4 weeks
+  const weekBars=useMemo(()=>{
+    const t=today();
+    return Array.from({length:4},(_,i)=>{
+      const wEnd=addDays(t,-i*7);
+      const wStart=addDays(wEnd,-6);
+      let sets=0;
+      for(let d=0;d<7;d++){
+        const ds=addDays(wStart,d);
+        const l=getLog(ds);
+        sets+=l.sets.length;
+      }
+      return{label:`-${i>0?i+'週':'今週'}`,sets};
+    }).reverse();
+  },[]);
+  const maxBar=Math.max(...weekBars.map(w=>w.sets),1);
+
+  const selLog=selDate?getLog(selDate):null;
+  const selPlan=selDate?getPlanForDay(settings.currentPhase,dowOf(selDate)):null;
+
+  return(
+    <div style={{paddingBottom:80}}>
+      <div style={{padding:'16px 16px 0'}}>
+        <h1 style={{fontSize:20,fontWeight:700,marginBottom:16,letterSpacing:1}}>履歴・統計</h1>
+
+        {/* Calendar */}
+        <div style={{background:C.card,borderRadius:12,padding:'14px',marginBottom:12}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+            <button onClick={prevMonth} style={{background:C.dark,border:'none',color:C.text,width:30,height:30,borderRadius:6,cursor:'pointer',fontSize:16}}>‹</button>
+            <span style={{fontWeight:700,fontSize:15}}>{year}年 {month+1}月</span>
+            <button onClick={nextMonth} style={{background:C.dark,border:'none',color:C.text,width:30,height:30,borderRadius:6,cursor:'pointer',fontSize:16}}>›</button>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:2,marginBottom:4}}>
+            {DAY_NAMES.map(d=><div key={d} style={{textAlign:'center',fontSize:10,color:C.muted,padding:'2px 0'}}>{d}</div>)}
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:2}}>
+            {Array.from({length:firstDow}).map((_,i)=><div key={`e${i}`}/>)}
+            {Array.from({length:days},(_,i)=>{
+              const d=i+1;
+              const ds=`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+              const hasTrain=trainSet.has(ds);
+              const isTd=ds===today();
+              const isSel=ds===selDate;
+              return(
+                <button key={d} onClick={()=>setSelDate(isSel?null:ds)}
+                  style={{aspectRatio:'1',borderRadius:6,background:isSel?C.accent:isTd?C.accent+'33':hasTrain?C.success+'22':C.dark,border:`1px solid ${isSel?C.accent:isTd?C.accent+'66':C.dark}`,cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:1}}>
+                  <span style={{fontSize:11,color:isSel?'#fff':isTd?C.accent:C.text}}>{d}</span>
+                  {hasTrain&&<div style={{width:4,height:4,borderRadius:2,background:isSel?'#fff':C.success}}/>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Selected Day Detail */}
+        {selDate&&selLog&&(
+          <div className="fadeUp" style={{background:C.card,borderRadius:12,padding:'12px 14px',marginBottom:12,border:`1px solid ${C.accent}44`}}>
+            <p style={{fontWeight:700,fontSize:13,marginBottom:8,color:C.accent}}>
+              {parseDate(selDate).getMonth()+1}/{parseDate(selDate).getDate()} の記録
+            </p>
+            {selLog.sets.length===0?(
+              <p style={{color:C.muted,fontSize:12}}>記録なし</p>
+            ):(
+              <div style={{display:'flex',flexDirection:'column',gap:4}}>
+                {selPlan&&selPlan.map(pe=>{
+                  const ex=exMap[pe.exerciseId];
+                  const doneSets=Array.from({length:pe.sets},(_,i)=>isSetDone(selLog,pe.exerciseId,i)).filter(Boolean).length;
+                  if(doneSets===0)return null;
+                  return ex?(
+                    <div key={pe.exerciseId} style={{display:'flex',justifyContent:'space-between',fontSize:12}}>
+                      <span style={{color:C.text}}>{ex.name}</span>
+                      <span style={{color:C.success}}>{doneSets}/{pe.sets} セット</span>
+                    </div>
+                  ):null;
+                })}
+                <p style={{color:C.muted,fontSize:11,marginTop:4}}>合計 {selLog.sets.length} セット記録</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Stats Cards */}
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:12}}>
+          {[
+            {label:'今週の達成率',value:`${weekStats.rate}%`,color:C.accent},
+            {label:'今月のトレーニング',value:`${monthCount}日`,color:C.success},
+            {label:'連続記録',value:`${streak}日 🔥`,color:C.warn},
+            {label:'累計セット数',value:`${totalSets}`,color:C.muted},
+          ].map(s=>(
+            <div key={s.label} style={{background:C.card,borderRadius:12,padding:'12px 14px',border:`1px solid ${C.dark}`}}>
+              <p style={{color:C.muted,fontSize:10,letterSpacing:1,marginBottom:4}}>{s.label}</p>
+              <p style={{fontSize:20,fontWeight:700,color:s.color}}>{s.value}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Weekly Bar Chart */}
+        <div style={{background:C.card,borderRadius:12,padding:'14px',marginBottom:12}}>
+          <p style={{color:C.muted,fontSize:11,letterSpacing:2,marginBottom:14}}>過去4週のセット数</p>
+          <div style={{display:'flex',gap:8,alignItems:'flex-end',height:80}}>
+            {weekBars.map((w,i)=>(
+              <div key={i} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:4}}>
+                <span style={{color:C.accent,fontSize:10}}>{w.sets}</span>
+                <div style={{width:'100%',background:C.dark,borderRadius:4,overflow:'hidden',height:60,display:'flex',alignItems:'flex-end'}}>
+                  <div style={{width:'100%',background:`linear-gradient(180deg,${C.accent},${C.accent}88)`,height:`${(w.sets/maxBar)*100}%`,borderRadius:4,transition:'height .5s'}}/>
+                </div>
+                <span style={{color:C.muted,fontSize:9,textAlign:'center'}}>{w.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── LIBRARY TAB ───────────────────────────────────
+const LibraryTab=()=>{
+  const [cat,setCat]=useState('all');
+  const [selEx,setSelEx]=useState(null);
+  const [search,setSearch]=useState('');
+
+  const cats=[
+    {id:'all',label:'すべて'},
+    {id:'push',label:'プッシュ系'},
+    {id:'pull',label:'プル系'},
+    {id:'legs',label:'脚・体幹'},
+  ];
+
+  const filtered=EXERCISES.filter(e=>{
+    if(cat!=='all'&&e.category!==cat&&!(cat==='legs'&&e.category==='core'))return false;
+    if(search&&!e.name.includes(search)&&!e.muscles.some(m=>m.includes(search)))return false;
+    return true;
+  });
+
+  return(
+    <div style={{paddingBottom:80}}>
+      <div style={{padding:'16px 16px 0',background:`linear-gradient(180deg,#0e0e1a 0%,${C.bg} 100%)`}}>
+        <h1 style={{fontSize:20,fontWeight:700,marginBottom:12,letterSpacing:1}}>種目図鑑</h1>
+        <input type="text" placeholder="種目名・筋肉名で検索…" value={search} onChange={e=>setSearch(e.target.value)}
+          style={{width:'100%',background:C.card,border:`1px solid ${C.dark}`,borderRadius:10,padding:'10px 14px',color:C.text,fontSize:13,marginBottom:12}}/>
+        <div style={{display:'flex',gap:6,marginBottom:4,overflowX:'auto',paddingBottom:2}}>
+          {cats.map(c=>(
+            <button key={c.id} onClick={()=>setCat(c.id)}
+              style={{flexShrink:0,padding:'7px 14px',borderRadius:20,border:`1px solid ${cat===c.id?C.accent:C.dark}`,background:cat===c.id?C.accent+'22':C.card,color:cat===c.id?C.accent:C.muted,fontSize:12,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',transition:'all .2s'}}>
+              {c.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{padding:'12px 16px',display:'flex',flexDirection:'column',gap:10}}>
+        {filtered.map(ex=>{
+          const SvgComp=SVGS[ex.id];
+          const typeColor=ex.category==='push'?C.accent:ex.category==='pull'?C.success:C.warn;
+          return(
+            <div key={ex.id} style={{background:C.card,borderRadius:12,overflow:'hidden',border:`1px solid ${C.dark}`,cursor:'pointer'}} onClick={()=>setSelEx(ex)}>
+              <div style={{background:C.bg,borderBottom:`1px solid ${C.dark}`,position:'relative'}}>
+                {SvgComp&&<SvgComp/>}
+                <div style={{position:'absolute',top:8,right:8,display:'flex',gap:4}}>
+                  <span style={{background:typeColor+'22',color:typeColor,fontSize:10,padding:'2px 7px',borderRadius:20,border:`1px solid ${typeColor}44`}}>
+                    {TYPE_LABELS[ex.category==='core'?'legs':ex.category]||ex.category}
+                  </span>
+                  <span style={{background:DIFF_COLORS[ex.difficulty]+'22',color:DIFF_COLORS[ex.difficulty],fontSize:10,padding:'2px 7px',borderRadius:20,border:`1px solid ${DIFF_COLORS[ex.difficulty]}44`}}>
+                    {DIFF_LABELS[ex.difficulty]}
+                  </span>
+                </div>
+              </div>
+              <div style={{padding:'10px 14px 12px'}}>
+                <p style={{fontWeight:700,fontSize:14,marginBottom:4}}>{ex.name}</p>
+                <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                  {ex.muscles.slice(0,3).map(m=>(
+                    <span key={m} style={{background:C.dark,color:C.muted,fontSize:10,padding:'2px 7px',borderRadius:20}}>{m}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        {filtered.length===0&&<p style={{color:C.muted,textAlign:'center',padding:32,fontSize:13}}>該当する種目が見つかりません</p>}
+      </div>
+
+      <ExerciseDetailModal ex={selEx} open={!!selEx} onClose={()=>setSelEx(null)}/>
+    </div>
+  );
+};
+
+// ── APP ROOT ──────────────────────────────────────
+const App=()=>{
+  const [tab,setTab]=useState('today');
+  const [settings,setSettings]=useState(()=>getSettings());
+  const [viewDate,setViewDate]=useState(()=>today());
+
+  return(
+    <div style={{background:C.bg,minHeight:'100vh',color:C.text}}>
+      {tab==='today'&&<TodayTab settings={settings} viewDate={viewDate} setViewDate={setViewDate}/>}
+      {tab==='schedule'&&<ScheduleTab settings={settings} setSettings={setSettings}/>}
+      {tab==='history'&&<HistoryTab settings={settings}/>}
+      {tab==='library'&&<LibraryTab/>}
+      <BottomNav tab={tab} setTab={setTab}/>
+    </div>
+  );
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
