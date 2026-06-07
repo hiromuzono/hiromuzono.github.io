@@ -509,45 +509,53 @@ const EXERCISES=[
 {id:'jump-lunge',name:'ジャンプランジ',category:'legs',muscles:['大腿四頭筋','臀筋','ふくらはぎ'],difficulty:'intermediate',description:'ランジの体勢から爆発的に跳び上がり、空中で足を入れ替えるプライオメトリクス種目。下半身の爆発的な筋力と持久力を同時に鍛える。',points:['空中で素早く足を入れ替える','着地はソフトに膝を曲げて吸収','リズミカルに連続して行う','体幹を安定させてブレを防ぐ']},
 {id:'nordic-curl',name:'ノルディックカール（ネガティブ）',category:'legs',muscles:['ハムストリング','臀筋'],difficulty:'advanced',description:'足首を固定した状態で、膝立ちから上体を前に倒していく種目。ハムストリングのエキセントリック筋力を鍛える最も効果的な方法の一つ。',points:['できる限りゆっくり前に倒れる','手で体を支えて安全に','ハムストリングのストレッチを感じる','元の姿勢に戻る時は手で補助してよい']},
 {id:'dragon-flag',name:'ドラゴンフラッグ練習',category:'core',muscles:['腹直筋','体幹全体','脊柱起立筋'],difficulty:'advanced',description:'ブルース・リーが好んだとされる究極の腹筋種目。ベンチに肩から上だけ乗せ、体全体を水平に保つ。全体幹筋肉の協調的な収縮が要求される。',points:['まず膝を曲げた短縮版から','肩甲骨でベンチを押さえる','体を水平より下に下げる','コントロールして動かす']},
-{id:'hanging-leg-raise',name:'ハンギングレッグレイズ',category:'core',muscles:['腹直筋下部','腸腰筋','前鋸筋','握力'],difficulty:'advanced',description:'バーにぶら下がったまま足を持ち上げる高難度体幹種目。不安定な状態での体幹制御が要求され、腹部全体への刺激が非常に強い。',points:['腰を丸めながら足を上げる','反動を使わない','握力強化も兼ねる','膝を曲げた状態から始めて徐々に難度を上げる']},
+{id:'hanging-leg-raise',name:'ハンギングレッグレイズ',category:'core',muscles:['腹直筋下部','腸腰筋','前鋸筋','握力'],difficulty:'advanced',description:'',points:[]},
+{id:'calf-raise',name:'カーフレイズ',category:'legs',muscles:['腓腹筋','ヒラメ筋'],difficulty:'beginner',description:'',points:[]},
+{id:'single-leg-calf-raise',name:'カーフレイズ（片脚）',category:'legs',muscles:['腓腹筋','ヒラメ筋'],difficulty:'intermediate',description:'',points:[]},
+{id:'elevated-single-leg-calf-raise',name:'カーフレイズ（片脚・高台）',category:'legs',muscles:['腓腹筋','ヒラメ筋'],difficulty:'advanced',description:'',points:[]},
+{id:'burpee',name:'バーピー',category:'legs',muscles:['全身','心肺機能'],difficulty:'intermediate',description:'',points:[]},
+{id:'cardio',name:'ウォーキング・縄跳び',category:'legs',muscles:['有酸素','心肺機能'],difficulty:'beginner',description:'',points:[]},
+{id:'interval-run',name:'インターバル走',category:'legs',muscles:['有酸素','心肺機能'],difficulty:'intermediate',description:'',points:[]},
 ];
 
 // ── DEFAULT PLANS ────────────────────────────────
-// dayOfWeek: 0=Sun,1=Mon,2=Tue,3=Wed,4=Thu,5=Fri,6=Sat
+// dayOfWeek: 0=Sun(rest),1=Mon(push),2=Tue(pull),3=Wed(legs),4=Thu(core),5=Fri(push),6=Sat(pull+legs)
+const DEFAULT_PLAN_VERSION=2;
 const DEFAULT_PLAN={
 1:{
   0:null,
   1:[{exerciseId:'pushup',sets:3,reps:10,unit:'reps'},{exerciseId:'wide-pushup',sets:3,reps:10,unit:'reps'},{exerciseId:'pike-pushup',sets:3,reps:8,unit:'reps'},{exerciseId:'chair-dips',sets:3,reps:10,unit:'reps'}],
   2:[{exerciseId:'table-pullup',sets:3,reps:10,unit:'reps'},{exerciseId:'superman',sets:3,reps:12,unit:'reps'},{exerciseId:'reverse-plank',sets:3,reps:30,unit:'seconds'},{exerciseId:'towel-row',sets:3,reps:10,unit:'reps'}],
-  3:[{exerciseId:'squat',sets:3,reps:15,unit:'reps'},{exerciseId:'lunge',sets:3,reps:10,unit:'reps'},{exerciseId:'glute-bridge',sets:3,reps:15,unit:'reps'},{exerciseId:'plank',sets:3,reps:30,unit:'seconds'},{exerciseId:'crunch',sets:3,reps:15,unit:'reps'}],
-  4:[{exerciseId:'pushup',sets:3,reps:10,unit:'reps'},{exerciseId:'wide-pushup',sets:3,reps:10,unit:'reps'},{exerciseId:'pike-pushup',sets:3,reps:8,unit:'reps'},{exerciseId:'chair-dips',sets:3,reps:10,unit:'reps'}],
-  5:[{exerciseId:'table-pullup',sets:3,reps:10,unit:'reps'},{exerciseId:'superman',sets:3,reps:12,unit:'reps'},{exerciseId:'reverse-plank',sets:3,reps:30,unit:'seconds'},{exerciseId:'towel-row',sets:3,reps:10,unit:'reps'}],
-  6:[{exerciseId:'squat',sets:3,reps:15,unit:'reps'},{exerciseId:'lunge',sets:3,reps:10,unit:'reps'},{exerciseId:'glute-bridge',sets:3,reps:15,unit:'reps'},{exerciseId:'plank',sets:3,reps:30,unit:'seconds'},{exerciseId:'crunch',sets:3,reps:15,unit:'reps'}],
+  3:[{exerciseId:'squat',sets:3,reps:15,unit:'reps'},{exerciseId:'lunge',sets:3,reps:10,unit:'reps'},{exerciseId:'glute-bridge',sets:3,reps:15,unit:'reps'},{exerciseId:'calf-raise',sets:3,reps:20,unit:'reps'},{exerciseId:'plank',sets:3,reps:30,unit:'seconds'},{exerciseId:'crunch',sets:3,reps:15,unit:'reps'}],
+  4:[{exerciseId:'plank',sets:3,reps:30,unit:'seconds'},{exerciseId:'crunch',sets:3,reps:15,unit:'reps'},{exerciseId:'burpee',sets:3,reps:8,unit:'reps'},{exerciseId:'cardio',sets:1,reps:20,unit:'minutes'}],
+  5:[{exerciseId:'pushup',sets:3,reps:10,unit:'reps'},{exerciseId:'wide-pushup',sets:3,reps:10,unit:'reps'},{exerciseId:'pike-pushup',sets:3,reps:8,unit:'reps'},{exerciseId:'chair-dips',sets:3,reps:10,unit:'reps'}],
+  6:[{exerciseId:'table-pullup',sets:3,reps:10,unit:'reps'},{exerciseId:'superman',sets:3,reps:12,unit:'reps'},{exerciseId:'squat',sets:3,reps:15,unit:'reps'},{exerciseId:'calf-raise',sets:3,reps:20,unit:'reps'}],
 },
 2:{
   0:null,
   1:[{exerciseId:'archer-pushup',sets:4,reps:8,unit:'reps'},{exerciseId:'diamond-pushup',sets:3,reps:10,unit:'reps'},{exerciseId:'pike-pushup',sets:4,reps:12,unit:'reps'},{exerciseId:'tempo-pushup',sets:3,reps:8,unit:'reps'}],
   2:[{exerciseId:'pullup',sets:4,reps:0,unit:'reps'},{exerciseId:'superman-hold',sets:3,reps:10,unit:'reps'},{exerciseId:'one-arm-towel-row',sets:3,reps:10,unit:'reps'},{exerciseId:'inverted-row',sets:3,reps:10,unit:'reps'}],
-  3:[{exerciseId:'bulgarian-squat',sets:3,reps:10,unit:'reps'},{exerciseId:'jump-squat',sets:3,reps:10,unit:'reps'},{exerciseId:'single-leg-rdl',sets:3,reps:10,unit:'reps'},{exerciseId:'side-plank',sets:3,reps:40,unit:'seconds'},{exerciseId:'leg-raise',sets:3,reps:15,unit:'reps'}],
-  4:[{exerciseId:'archer-pushup',sets:4,reps:8,unit:'reps'},{exerciseId:'diamond-pushup',sets:3,reps:10,unit:'reps'},{exerciseId:'pike-pushup',sets:4,reps:12,unit:'reps'},{exerciseId:'tempo-pushup',sets:3,reps:8,unit:'reps'}],
-  5:[{exerciseId:'pullup',sets:4,reps:0,unit:'reps'},{exerciseId:'superman-hold',sets:3,reps:10,unit:'reps'},{exerciseId:'one-arm-towel-row',sets:3,reps:10,unit:'reps'},{exerciseId:'inverted-row',sets:3,reps:10,unit:'reps'}],
-  6:[{exerciseId:'bulgarian-squat',sets:3,reps:10,unit:'reps'},{exerciseId:'jump-squat',sets:3,reps:10,unit:'reps'},{exerciseId:'single-leg-rdl',sets:3,reps:10,unit:'reps'},{exerciseId:'side-plank',sets:3,reps:40,unit:'seconds'},{exerciseId:'leg-raise',sets:3,reps:15,unit:'reps'}],
+  3:[{exerciseId:'bulgarian-squat',sets:3,reps:10,unit:'reps'},{exerciseId:'jump-squat',sets:3,reps:10,unit:'reps'},{exerciseId:'single-leg-calf-raise',sets:3,reps:15,unit:'reps'},{exerciseId:'single-leg-rdl',sets:3,reps:10,unit:'reps'},{exerciseId:'side-plank',sets:3,reps:40,unit:'seconds'},{exerciseId:'leg-raise',sets:3,reps:15,unit:'reps'}],
+  4:[{exerciseId:'plank',sets:3,reps:45,unit:'seconds'},{exerciseId:'side-plank',sets:3,reps:30,unit:'seconds'},{exerciseId:'burpee',sets:3,reps:10,unit:'reps'},{exerciseId:'cardio',sets:1,reps:20,unit:'minutes'}],
+  5:[{exerciseId:'archer-pushup',sets:4,reps:8,unit:'reps'},{exerciseId:'diamond-pushup',sets:3,reps:10,unit:'reps'},{exerciseId:'pike-pushup',sets:4,reps:12,unit:'reps'},{exerciseId:'tempo-pushup',sets:3,reps:8,unit:'reps'}],
+  6:[{exerciseId:'pullup',sets:3,reps:0,unit:'reps'},{exerciseId:'inverted-row',sets:3,reps:10,unit:'reps'},{exerciseId:'bulgarian-squat',sets:3,reps:10,unit:'reps'},{exerciseId:'single-leg-calf-raise',sets:3,reps:15,unit:'reps'}],
 },
 3:{
   0:null,
   1:[{exerciseId:'clapping-pushup',sets:3,reps:8,unit:'reps'},{exerciseId:'pike-pushup',sets:4,reps:10,unit:'reps'},{exerciseId:'archer-pushup',sets:4,reps:10,unit:'reps'},{exerciseId:'pushup-challenge',sets:1,reps:100,unit:'reps'}],
   2:[{exerciseId:'pullup',sets:5,reps:0,unit:'reps'},{exerciseId:'heavy-towel-row',sets:4,reps:12,unit:'reps'},{exerciseId:'superman-slow',sets:3,reps:15,unit:'reps'},{exerciseId:'front-lever',sets:3,reps:10,unit:'seconds'}],
-  3:[{exerciseId:'pistol-squat',sets:3,reps:5,unit:'reps'},{exerciseId:'jump-lunge',sets:3,reps:12,unit:'reps'},{exerciseId:'nordic-curl',sets:3,reps:6,unit:'reps'},{exerciseId:'dragon-flag',sets:3,reps:5,unit:'reps'},{exerciseId:'hanging-leg-raise',sets:3,reps:12,unit:'reps'}],
-  4:[{exerciseId:'clapping-pushup',sets:3,reps:8,unit:'reps'},{exerciseId:'pike-pushup',sets:4,reps:10,unit:'reps'},{exerciseId:'archer-pushup',sets:4,reps:10,unit:'reps'},{exerciseId:'pushup-challenge',sets:1,reps:100,unit:'reps'}],
-  5:[{exerciseId:'pullup',sets:5,reps:0,unit:'reps'},{exerciseId:'heavy-towel-row',sets:4,reps:12,unit:'reps'},{exerciseId:'superman-slow',sets:3,reps:15,unit:'reps'},{exerciseId:'front-lever',sets:3,reps:10,unit:'seconds'}],
-  6:[{exerciseId:'pistol-squat',sets:3,reps:5,unit:'reps'},{exerciseId:'jump-lunge',sets:3,reps:12,unit:'reps'},{exerciseId:'nordic-curl',sets:3,reps:6,unit:'reps'},{exerciseId:'dragon-flag',sets:3,reps:5,unit:'reps'},{exerciseId:'hanging-leg-raise',sets:3,reps:12,unit:'reps'}],
+  3:[{exerciseId:'pistol-squat',sets:3,reps:5,unit:'reps'},{exerciseId:'jump-lunge',sets:3,reps:12,unit:'reps'},{exerciseId:'elevated-single-leg-calf-raise',sets:3,reps:15,unit:'reps'},{exerciseId:'nordic-curl',sets:3,reps:6,unit:'reps'},{exerciseId:'dragon-flag',sets:3,reps:5,unit:'reps'}],
+  4:[{exerciseId:'dragon-flag',sets:3,reps:5,unit:'reps'},{exerciseId:'hanging-leg-raise',sets:3,reps:12,unit:'reps'},{exerciseId:'burpee',sets:3,reps:12,unit:'reps'},{exerciseId:'interval-run',sets:1,reps:30,unit:'minutes'}],
+  5:[{exerciseId:'clapping-pushup',sets:3,reps:8,unit:'reps'},{exerciseId:'pike-pushup',sets:4,reps:10,unit:'reps'},{exerciseId:'archer-pushup',sets:4,reps:10,unit:'reps'},{exerciseId:'pushup-challenge',sets:1,reps:100,unit:'reps'}],
+  6:[{exerciseId:'pullup',sets:4,reps:0,unit:'reps'},{exerciseId:'front-lever',sets:3,reps:10,unit:'seconds'},{exerciseId:'pistol-squat',sets:3,reps:5,unit:'reps'},{exerciseId:'elevated-single-leg-calf-raise',sets:3,reps:15,unit:'reps'}],
 },
 };
 
 const DAY_NAMES=['日','月','火','水','木','金','土'];
-const DAY_TYPE={0:null,1:'push',2:'pull',3:'legs',4:'push',5:'pull',6:'legs'};
-const TYPE_LABELS={push:'プッシュ系',pull:'プル系',legs:'脚・体幹',null:'休息日'};
-const TYPE_COLORS={push:C.accent,pull:C.success,legs:C.warn,null:C.muted};
+const DAY_TYPE={0:null,1:'push',2:'pull',3:'legs',4:'core',5:'push',6:'pull'};
+const TYPE_LABELS={push:'プッシュ系',pull:'プル系',legs:'脚・体幹',core:'体幹・有酸素',null:'完全休養'};
+const TYPE_COLORS={push:C.accent,pull:C.success,legs:C.warn,core:C.muted,null:C.muted};
+const unitLabel=(u)=>u==='seconds'?'秒':u==='minutes'?'分':'回';
 const DIFF_LABELS={beginner:'初級',intermediate:'中級',advanced:'上級'};
 const DIFF_COLORS={beginner:C.success,intermediate:C.accent,advanced:C.danger};
 
@@ -670,6 +678,16 @@ const calcTotalSets=()=>{
 // ── EXERCISE LOOKUP ───────────────────────────────
 const exMap=Object.fromEntries(EXERCISES.map(e=>[e.id,e]));
 
+// ── SEARCH LINK ──────────────────────────────────
+const SearchLink=({name})=>(
+  <a href={`https://www.google.com/search?q=${encodeURIComponent(name+' やり方')}`}
+     target="_blank" rel="noopener noreferrer"
+     style={{display:'inline-flex',alignItems:'center',justifyContent:'center',color:C.accent,fontSize:16,minWidth:44,minHeight:44,textDecoration:'none',flexShrink:0}}
+     onClick={e=>e.stopPropagation()}>
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg>
+  </a>
+);
+
 // ── MODAL ─────────────────────────────────────────
 const Modal=({open,onClose,title,children})=>{
   if(!open)return null;
@@ -692,7 +710,6 @@ const BottomNav=({tab,setTab})=>{
     {id:'today',label:'今日',icon:<svg viewBox="0 0 24 24" width="22" height="22" fill="none"><rect x="3" y="4" width="18" height="17" rx="2" stroke="currentColor" strokeWidth="2"/><line x1="3" y1="9" x2="21" y2="9" stroke="currentColor" strokeWidth="2"/><circle cx="8" cy="14" r="1.5" fill="currentColor"/><circle cx="12" cy="14" r="1.5" fill="currentColor"/><circle cx="16" cy="14" r="1.5" fill="currentColor"/></svg>},
     {id:'schedule',label:'スケジュール',icon:<svg viewBox="0 0 24 24" width="22" height="22" fill="none"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>},
     {id:'history',label:'履歴',icon:<svg viewBox="0 0 24 24" width="22" height="22" fill="none"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>},
-    {id:'library',label:'図鑑',icon:<svg viewBox="0 0 24 24" width="22" height="22" fill="none"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" stroke="currentColor" strokeWidth="2"/></svg>},
   ];
   return(
     <nav style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:430,background:C.card,borderTop:`1px solid ${C.dark}`,display:'flex',zIndex:50}}>
@@ -706,39 +723,10 @@ const BottomNav=({tab,setTab})=>{
   );
 };
 
-// ── EXERCISE DETAIL MODAL ─────────────────────────
-const ExerciseDetailModal=({ex,open,onClose})=>{
-  if(!ex)return null;
-  const SvgComp=SVGS[ex.id];
-  return(
-    <Modal open={open} onClose={onClose} title={ex.name}>
-      <div style={{background:C.bg,borderRadius:12,overflow:'hidden',marginBottom:16}}>
-        {SvgComp&&<SvgComp/>}
-      </div>
-      <div style={{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap'}}>
-        {ex.muscles.map(m=>(
-          <span key={m} style={{background:C.dark,color:C.text,fontSize:11,padding:'3px 8px',borderRadius:20}}>{m}</span>
-        ))}
-        <span style={{background:DIFF_COLORS[ex.difficulty]+'22',color:DIFF_COLORS[ex.difficulty],fontSize:11,padding:'3px 8px',borderRadius:20,border:`1px solid ${DIFF_COLORS[ex.difficulty]}44`}}>{DIFF_LABELS[ex.difficulty]}</span>
-      </div>
-      <p style={{color:C.muted,fontSize:14,lineHeight:1.7,marginBottom:16}}>{ex.description}</p>
-      <div style={{borderLeft:`2px solid ${C.accent}`,paddingLeft:12}}>
-        <p style={{color:C.accent,fontSize:11,fontWeight:700,marginBottom:8,letterSpacing:2}}>POINTS</p>
-        {ex.points.map((p,i)=>(
-          <div key={i} style={{display:'flex',gap:8,marginBottom:6,fontSize:13,color:C.text}}>
-            <span style={{color:C.accent,flexShrink:0}}>·</span>
-            <span>{p}</span>
-          </div>
-        ))}
-      </div>
-    </Modal>
-  );
-};
 
 // ── TODAY TAB ─────────────────────────────────────
 const TodayTab=({settings,viewDate,setViewDate})=>{
   const [log,setLog]=useState(()=>getLog(viewDate));
-  const [detailEx,setDetailEx]=useState(null);
   const [checkedAnim,setCheckedAnim]=useState({});
   const [repInputs,setRepInputs]=useState({});
   const [memoInputs,setMemoInputs]=useState({});
@@ -873,14 +861,12 @@ const TodayTab=({settings,viewDate,setViewDate})=>{
             <div key={ex.id} style={{background:C.card,borderRadius:12,padding:'14px',border:`1px solid ${allExDone?C.success+'60':C.dark}`,transition:'border-color .3s',position:'relative'}}>
               {allExDone&&<span style={{position:'absolute',top:12,right:12,color:C.success,fontSize:16}}>✓</span>}
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
-                <div style={{flex:1,paddingRight:24}}>
-                  <button onClick={()=>setDetailEx(ex)} style={{background:'none',border:'none',padding:0,cursor:'pointer',textAlign:'left'}}>
-                    <p style={{fontWeight:700,fontSize:15,color:allExDone?C.success:C.text,transition:'color .3s'}}>{ex.name}</p>
-                  </button>
-                  <p style={{color:C.muted,fontSize:11,marginTop:2}}>{ex.muscles.join(' · ')}</p>
+                <div style={{flex:1,paddingRight:8,display:'flex',alignItems:'center',gap:2}}>
+                  <p style={{fontWeight:700,fontSize:15,color:allExDone?C.success:C.text,transition:'color .3s'}}>{ex.name}</p>
+                  <SearchLink name={ex.name}/>
                 </div>
                 <span style={{background:TYPE_COLORS[DAY_TYPE[dowOf(viewDate)]]+'22',color:TYPE_COLORS[DAY_TYPE[dowOf(viewDate)]],fontSize:10,padding:'2px 7px',borderRadius:20,flexShrink:0,border:`1px solid ${TYPE_COLORS[DAY_TYPE[dowOf(viewDate)]]}44`}}>
-                  {planEx.sets}セット×{planEx.reps>0?planEx.reps:'MAX'}{planEx.unit==='seconds'?'秒':'回'}
+                  {planEx.sets}×{planEx.reps>0?planEx.reps:'MAX'}{unitLabel(planEx.unit)}
                 </span>
               </div>
 
@@ -907,7 +893,7 @@ const TodayTab=({settings,viewDate,setViewDate})=>{
                         style={{width:52,background:'transparent',border:`1px solid ${C.dark}`,borderRadius:6,color:C.text,padding:'3px 6px',fontSize:13,textAlign:'center'}}
                         min="0"
                       />
-                      <span style={{color:C.muted,fontSize:11}}>{planEx.unit==='seconds'?'秒':'回'}</span>
+                      <span style={{color:C.muted,fontSize:11}}>{unitLabel(planEx.unit)}</span>
                       <input
                         type="text"
                         placeholder="メモ"
@@ -924,7 +910,6 @@ const TodayTab=({settings,viewDate,setViewDate})=>{
         })}
       </div>
 
-      <ExerciseDetailModal ex={detailEx} open={!!detailEx} onClose={()=>setDetailEx(null)}/>
     </div>
   );
 };
@@ -1046,9 +1031,9 @@ const ScheduleTab=({settings,setSettings})=>{
                   {plan.map(pe=>{
                     const ex=exMap[pe.exerciseId];
                     return ex?(
-                      <div key={pe.exerciseId} style={{display:'flex',justifyContent:'space-between',fontSize:12,color:C.muted,padding:'2px 0'}}>
-                        <span>{ex.name}</span>
-                        <span>{pe.sets}×{pe.reps>0?pe.reps:'MAX'}{pe.unit==='seconds'?'秒':'回'}</span>
+                      <div key={pe.exerciseId} style={{display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:12,color:C.muted,padding:'2px 0'}}>
+                        <span style={{display:'flex',alignItems:'center',gap:2}}>{ex.name}<SearchLink name={ex.name}/></span>
+                        <span style={{flexShrink:0}}>{pe.sets}×{pe.reps>0?pe.reps:'MAX'}{unitLabel(pe.unit)}</span>
                       </div>
                     ):null;
                   })}
@@ -1119,6 +1104,7 @@ const EditDayModal=({editDay,onClose})=>{
                     style={{background:C.dark,border:'none',borderRadius:4,color:C.muted,padding:'3px 6px',fontSize:11}}>
                     <option value="reps">回</option>
                     <option value="seconds">秒</option>
+                    <option value="minutes">分</option>
                   </select>
                 </div>
               </div>
@@ -1291,77 +1277,6 @@ const HistoryTab=({settings})=>{
   );
 };
 
-// ── LIBRARY TAB ───────────────────────────────────
-const LibraryTab=()=>{
-  const [cat,setCat]=useState('all');
-  const [selEx,setSelEx]=useState(null);
-  const [search,setSearch]=useState('');
-
-  const cats=[
-    {id:'all',label:'すべて'},
-    {id:'push',label:'プッシュ系'},
-    {id:'pull',label:'プル系'},
-    {id:'legs',label:'脚・体幹'},
-  ];
-
-  const filtered=EXERCISES.filter(e=>{
-    if(cat!=='all'&&e.category!==cat&&!(cat==='legs'&&e.category==='core'))return false;
-    if(search&&!e.name.includes(search)&&!e.muscles.some(m=>m.includes(search)))return false;
-    return true;
-  });
-
-  return(
-    <div style={{paddingBottom:80}}>
-      <div style={{padding:'16px 16px 0',background:`linear-gradient(180deg,#0e0e1a 0%,${C.bg} 100%)`}}>
-        <h1 style={{fontSize:20,fontWeight:700,marginBottom:12,letterSpacing:1}}>種目図鑑</h1>
-        <input type="text" placeholder="種目名・筋肉名で検索…" value={search} onChange={e=>setSearch(e.target.value)}
-          style={{width:'100%',background:C.card,border:`1px solid ${C.dark}`,borderRadius:10,padding:'10px 14px',color:C.text,fontSize:13,marginBottom:12}}/>
-        <div style={{display:'flex',gap:6,marginBottom:4,overflowX:'auto',paddingBottom:2}}>
-          {cats.map(c=>(
-            <button key={c.id} onClick={()=>setCat(c.id)}
-              style={{flexShrink:0,padding:'7px 14px',borderRadius:20,border:`1px solid ${cat===c.id?C.accent:C.dark}`,background:cat===c.id?C.accent+'22':C.card,color:cat===c.id?C.accent:C.muted,fontSize:12,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',transition:'all .2s'}}>
-              {c.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div style={{padding:'12px 16px',display:'flex',flexDirection:'column',gap:10}}>
-        {filtered.map(ex=>{
-          const SvgComp=SVGS[ex.id];
-          const typeColor=ex.category==='push'?C.accent:ex.category==='pull'?C.success:C.warn;
-          return(
-            <div key={ex.id} style={{background:C.card,borderRadius:12,overflow:'hidden',border:`1px solid ${C.dark}`,cursor:'pointer'}} onClick={()=>setSelEx(ex)}>
-              <div style={{background:C.bg,borderBottom:`1px solid ${C.dark}`,position:'relative'}}>
-                {SvgComp&&<SvgComp/>}
-                <div style={{position:'absolute',top:8,right:8,display:'flex',gap:4}}>
-                  <span style={{background:typeColor+'22',color:typeColor,fontSize:10,padding:'2px 7px',borderRadius:20,border:`1px solid ${typeColor}44`}}>
-                    {TYPE_LABELS[ex.category==='core'?'legs':ex.category]||ex.category}
-                  </span>
-                  <span style={{background:DIFF_COLORS[ex.difficulty]+'22',color:DIFF_COLORS[ex.difficulty],fontSize:10,padding:'2px 7px',borderRadius:20,border:`1px solid ${DIFF_COLORS[ex.difficulty]}44`}}>
-                    {DIFF_LABELS[ex.difficulty]}
-                  </span>
-                </div>
-              </div>
-              <div style={{padding:'10px 14px 12px'}}>
-                <p style={{fontWeight:700,fontSize:14,marginBottom:4}}>{ex.name}</p>
-                <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                  {ex.muscles.slice(0,3).map(m=>(
-                    <span key={m} style={{background:C.dark,color:C.muted,fontSize:10,padding:'2px 7px',borderRadius:20}}>{m}</span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-        {filtered.length===0&&<p style={{color:C.muted,textAlign:'center',padding:32,fontSize:13}}>該当する種目が見つかりません</p>}
-      </div>
-
-      <ExerciseDetailModal ex={selEx} open={!!selEx} onClose={()=>setSelEx(null)}/>
-    </div>
-  );
-};
-
 // ── APP ROOT ──────────────────────────────────────
 const App=()=>{
   const [tab,setTab]=useState('today');
@@ -1373,7 +1288,6 @@ const App=()=>{
       {tab==='today'&&<TodayTab settings={settings} viewDate={viewDate} setViewDate={setViewDate}/>}
       {tab==='schedule'&&<ScheduleTab settings={settings} setSettings={setSettings}/>}
       {tab==='history'&&<HistoryTab settings={settings}/>}
-      {tab==='library'&&<LibraryTab/>}
       <BottomNav tab={tab} setTab={setTab}/>
     </div>
   );
